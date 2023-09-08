@@ -219,6 +219,9 @@ class UpdateController extends Controller
                                 branchName = \''.$request->branchName.'\',
                                 transactionType = \''.$request->transactionType.'\',
                                 status = \''.$request->status.'\', dateTime = \''.$date.'\' WHERE id = \''.$request->id.'\'');
+
+        //  DB::select('DELETE FROM pullOutItemsTblNBFI WHERE plID = \''.$request->id.'\'');
+
         } else if($request->companyType == "EPC" || $request->companyType == "AHLC"){
             $data = DB::select('UPDATE pullOutBranchTbl
                                 SET chainCode = \''.$request->chainCode.'\',
@@ -226,85 +229,110 @@ class UpdateController extends Controller
                                 branchName = \''.$request->branchName.'\',
                                 transactionType = \''.$request->transactionType.'\',
                                 status = \''.$request->status.'\', dateTime = \''.$date.'\' WHERE id = \''.$request->id.'\'');
+
+            // DB::select('DELETE FROM pullOutItemsTbl WHERE plID = \''.$request->id.'\'');
         }
 
         return response()->json($data);
+    }
+
+    public function testing(Request $request){
+        $old_data = DB::table('pullOutItemsTbl')
+                ->select('quantity', 'boxLabel')
+                ->where('id', $request->id)
+                ->get()
+                ->first();
+        print_r($old_data->quantity);
     }
 
     public function updatePullOutItemRequest(Request $request){
 
         $status = $request->status;
 
-        if($request->companyType == "NBFI" || $request->companyType == "CMC" || $request->companyType == "ASC"){
+        foreach ($request->items as $value) {
+            if($request->companyType == "NBFI" || $request->companyType == "CMC" || $request->companyType == "ASC"){
 
-            // $old_data = PullOutItemModelNBFI::find($request->id);
+                // $old_data = PullOutItemModelNBFI::find($request->id);
+                if($value['id'])
+                {
+                    $old_data = DB::table('pullOutItemsTblNBFI')
+                                    ->select('quantity', 'boxLabel')
+                                    ->where('id', $value['id'])
+                                    ->get()
+                                    ->first();
 
-            $old_data = DB::table('pullOutItemsTblNBFI')
-                            ->select('quantity', 'boxLabel')
-                            ->where('id', $request->id)
-                            ->get()
+                    if($request->status != "draft"){
+                        if($old_data->quantity != $value['quantity'] || $old_data->boxLabel != $value['boxLabel'])
+                            $status = "edited";
+                    }
+                }
+
+
+                $data = DB::select('DELETE FROM pullOutItemsTblNBFI
+                                    WHERE id = \''.$value['id'].'\'');
+
+                $item = new PullOutItemModelNBFI();
+                $price = DB::table('nbfi_items')
+                            ->select('EffectivePrice')
+                            ->where('ItemNo', '=', $value['code'])
                             ->first();
 
-            if($request->status != "draft"){
-                if($old_data->quantity != $request->quantity || $old_data->boxLabel != $request->boxLabel){
-                    $status = "edited";
+
+
+            }else if ($request->companyType == "EPC" || $request->companyType == "AHLC"){
+
+                // $old_data = PullOutItemModel::find($request->id);
+                if($value['id'])
+                {
+                    $old_data = DB::table('pullOutItemsTbl')
+                                    ->select('quantity', 'boxLabel')
+                                    ->where('id', $value['id'])
+                                    ->get()
+                                    ->first();
+
+                    if($request->status != "draft"){
+                        if($old_data->quantity != $value['quantity'] || $old_data->boxLabel != $value['boxLabel'])
+                            $status = "edited";
+                    }
                 }
-            }
+                $data = DB::select('DELETE FROM pullOutItemsTbl
+                                    WHERE id = \''.$value['id'].'\'');
 
-            $data = DB::select('DELETE FROM pullOutItemsTblNBFI
-                                WHERE id = \''.$request->id.'\'');
-            $item = new PullOutItemModelNBFI();
-            $price = DB::table('nbfi_items')
-                        ->select('EffectivePrice')
-                        ->where('ItemNo', '=', $request->itemCode)
-                        ->first();
-
-
-
-        }else if ($request->companyType == "EPC" || $request->companyType == "AHLC"){
-
-            // $old_data = PullOutItemModel::find($request->id);
-
-            $old_data = DB::table('pullOutItemsTbl')
-                            ->select('quantity', 'boxLabel')
-                            ->where('id', $request->id)
-                            ->get()
+                $item = new PullOutItemModel();
+                $price = DB::table('epc_items')
+                            ->select('EffectivePrice')
+                            ->where('ItemNo', '=', $value['code'])
                             ->first();
-
-            if($request->status != "draft"){
-                if($old_data->quantity != $request->quantity || $old_data->boxLabel != $request->boxLabel){
-                    $status = "edited";
-                }
             }
-            $data = DB::select('DELETE FROM pullOutItemsTbl
-                                WHERE id = \''.$request->id.'\'');
 
-            $item = new PullOutItemModel();
-            $price = DB::table('epc_items')
-                        ->select('EffectivePrice')
-                        ->where('ItemNo', '=', $request->itemCode)
-                        ->first();
+            //COMPUTATION TOTAL AMOUNT
+            $amount = floatval($price->EffectivePrice) * floatval($value['quantity']);
+
+            $date = now()->timezone('Asia/Manila'); // GETTING THE TIME ZONE IN PH
+
+            $item->plID = $request->plID;
+            $item->brand = $value['categorybrand'];
+            $item->boxNumber = $value['boxNumber'];
+            $item->boxLabel = $value['boxLabel'];
+            $item->itemCode = $value['code'];
+            $item->quantity = $value['quantity'];
+            $item->amount = $amount;
+            $item->status = $status;
+            $item->dateTime = $date;
+
+            //SAVING
+            $item->save();
         }
 
-        //COMPUTATION TOTAL AMOUNT
-        $amount = floatval($price->EffectivePrice) * floatval($request->quantity);
-
-        $date = now()->timezone('Asia/Manila'); // GETTING THE TIME ZONE IN PH
-
-        $item->plID = $request->plID;
-        $item->brand = $request->brand;
-        $item->boxNumber = $request->boxNumber;
-        $item->boxLabel = $request->boxLabel;
-        $item->itemCode = $request->itemCode;
-        $item->quantity = $request->quantity;
-        $item->amount = $amount;
-        $item->status = $status;
-        $item->dateTime = $date;
-
-        //SAVING
-        $item->save();
-
-        return response()->json($status);
+        if($request->companyType == "NBFI" || $request->companyType == "CMC" || $request->companyType == "ASC")
+            DB::table('pullOutItemsTblNBFI')
+                ->whereIn('id', $request->removedItems)
+                ->delete();
+        else 
+            DB::table('pullOutItemsTbl')
+                ->whereIn('id', $request->removedItems)
+                ->delete();
+        // return response()->json($item);
     }
 
     public function updateUserBranch(Request $request){

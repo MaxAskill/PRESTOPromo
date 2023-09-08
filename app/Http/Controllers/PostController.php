@@ -28,6 +28,8 @@ use App\Models\RemarksModel;
 use App\Models\pullOutLetterDates;
 use App\Http\Controllers\BrevoSMService;
 use Image;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
 
 class PostController extends Controller
 {
@@ -762,9 +764,9 @@ class PostController extends Controller
         $branchName = str_replace(' ', '-', $request->branchName);
 
         if($request->company == "NBFI" || $request->company == "ASC" || $request->company == "CMC"){
-            if ($request->image) {
+            if ($request->hasFile('image')) {
                 $image = $request->image;
-                $imageName = $request->transactionID . '-' . $branchName . '-' . time() . '.' . $image->getClientOriginalExtension();
+                $imageName = $request->transactionID . '-' . $branchName . '-' . $request->uID .'-'. time() . '.' . $image->getClientOriginalExtension();
 
                 $filePath = public_path('uploads/NBFI');
 
@@ -786,8 +788,9 @@ class PostController extends Controller
             }
         }else if ($request->company == "EPC" || $request->company == "AHLC"){
             if ($request->hasFile('image')) {
-                $image = $request->file('image');
-                $imageName = $request->transactionID . '-' . $branchName . '-' . time() . '.' . $image->getClientOriginalExtension();
+                // $image = $request->file('image');
+                $image = $request->image;
+                $imageName = $request->transactionID . '-' . $branchName . '-' . $request->uID .'-'. time() . '.' . $image->getClientOriginalExtension();
 
 
                 $filePath = public_path('uploads/EPC');
@@ -827,17 +830,21 @@ class PostController extends Controller
     }
 
     public function postPromoUserBranch(Request $request){
-        // print_r($request->all());
         $date = now()->timezone('Asia/Manila'); // GETTING THE TIME ZONE IN PH
         if($request->req === "remove")
             DB::select("UPDATE userBranchMaintenance SET request = 'remove' WHERE id = \"".$request->id."\"");
 
         else if ($request->req === "additional"){
+            // $date_start = Carbon::createFromFormat('Y-m-d\TH:i:s.v\Z', $request->input('date_start'));
+            // $date_end = Carbon::createFromFormat('Y-m-d\TH:i:s.v\Z', $request->input('date_end'));
+
             $promoBranch = new UserBranchModel();
             $promoBranch->userID = $request->userID;
             $promoBranch->company = $request->company;
             $promoBranch->chainCode = $request->chainCode;
             $promoBranch->branchName = $request->branchName;
+            $promoBranch->date_start = $request->date_start;
+            $promoBranch->date_end = $request->date_end;
             $promoBranch->created_date = $date;
             $promoBranch->request = $request->req;
             $promoBranch->status = 'Activated';
@@ -875,6 +882,47 @@ class PostController extends Controller
         $letterDate->save();
 
         return response()->json($dateEnd);
+
+    }
+    public function deleteImage(Request $request){
+
+        $company = $request->company;
+
+
+        if ($company == "ASC" || $company == "CMC" || $company == "NBFI") {
+            $fileToDelete = public_path('uploads/NBFI/' . $request->path);
+            $company = "NBFI";
+        } else {
+            $fileToDelete = public_path('uploads/EPC/' . $request->path);
+            $company = "EPC";
+        }
+
+        if (File::exists($fileToDelete)) {
+            File::delete($fileToDelete);
+            // Optionally, delete the associated database record.
+            // Return a success response.
+            DB::table('imageBranchDocTbl')
+            ->where('path', $request->path)
+            ->where('company', $company) // Add this line to filter by company
+            ->delete();
+            return response()->json('Success Delete');
+        } else {
+            // File doesn't exist, return an error response.
+            return response()->json($fileToDelete); // File doesn't exist, return a 404 status.
+        // }
+        }
+
+        // if (Storage::disk('public')->exists($fileToDelete)) {
+        //     Storage::disk('public')->delete($fileToDelete);
+
+        //     // Optionally, you can also delete the associated database record if needed.
+        //     // Example:
+        //     // DB::table('imageBranchDocTbl')->where('transactionID', $request->id)->delete();
+
+        //     return response()->json('Success Delete');
+        // } else {
+        //     return response()->json($fileToDelete); // File doesn't exist, return a 404 status.
+        // }
 
     }
 

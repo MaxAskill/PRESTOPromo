@@ -83,63 +83,40 @@ class FetchController extends Controller
     public function fetchChainByUser(Request $request){
 
         $company = $request->company;
-        // $data = DB::table('epcbranchmaintenance')
-        //             ->select('chainCode')
-        //             ->distinct()
-        //             ->orderby('chainCode')
-        //             ->get();
-        if($company == "EPC"){
-            $data = DB::table('epcbranchmaintenance as a')
-                    ->join('userBranchMaintenance as b', 'b.chainCode', '=', 'a.chainCode')
-                    ->select('a.chainCode')
-                    ->where('b.userID', $request->userID)
-                    ->where('a.company', 'EPC')
-                    ->where('a.status', 'Active')
+
+        // if($company == "EPC" || $company == "AHLC"){
+            $data = DB::table('userBranchMaintenance')
+                    ->select('chainCode', 'date_start', 'date_end', 'permanent')
+                    ->where('userID', $request->userID)
+                    ->where('company', $company)
+                    ->where('request', null)
+                    // ->where('a.status', 'Active')
                     ->distinct()
-                    ->orderby('a.chainCode')
+                    ->orderby('chainCode')
                     ->get();
-        }else if($company == "AHLC"){
-            $data = DB::table('epcbranchmaintenance as a')
-                    ->join('userBranchMaintenance as b', 'b.chainCode', '=', 'a.chainCode')
-                    ->select('a.chainCode')
-                    ->where('b.userID', $request->userID)
-                    ->where('a.company', 'AHLC')
-                    ->where('a.status', 'Active')
-                    ->distinct()
-                    ->orderby('a.chainCode')
-                    ->get();
-        }else if($company == "ASC"){
-            $data = DB::table('nbfibranchmaintenance as a')
-                    ->join('userBranchMaintenance as b', 'b.chainCode', '=', 'a.chainCode')
-                    ->select('a.chainCode')
-                    ->where('b.userID', $request->userID)
-                    ->where('a.company', 'ASC')
-                    // ->orWhere('a.chainCode', 'SM DEPT. STORE')
-                    ->where('a.status', 'Active')
-                    ->distinct()
-                    ->orderby('a.chainCode')
-                    ->get();
-        }else if($company == "CMC"){
-            $data = DB::table('nbfibranchmaintenance as a')
-                    ->join('userBranchMaintenance as b', 'b.chainCode', '=', 'a.chainCode')
-                    ->select('a.chainCode')
-                    ->where('b.userID', $request->userID)
-                    ->where('a.company', 'CMC')
-                    ->where('a.status', 'Active')
-                    ->distinct()
-                    ->orderby('a.chainCode')
-                    ->get();
-        }else if($company == "NBFI"){
-            $data = DB::table('nbfibranchmaintenance as a')
-                    ->join('userBranchMaintenance as b', 'b.chainCode', '=', 'a.chainCode')
-                    ->select('a.chainCode')
-                    ->where('b.userID', $request->userID)
-                    ->where('a.company', 'NBFI')
-                    ->where('a.status', 'Active')
-                    ->distinct()
-                    ->orderby('a.chainCode')
-                    ->get();
+
+        foreach ($data as $key => $value) {
+            $isStartDate = new \DateTime($value->date_start);
+            $isEndDate = new \DateTime($value->date_end);
+            $today = new \DateTime();
+            $today->setTime(0, 0, 0, 0);
+
+            if (!($isStartDate <= $today && $isEndDate >= $today) && !$value->permanent)
+                unset($data[$key]);
         }
+        // }else {
+            // $data = DB::table('nbfibranchmaintenance as a')
+            //         ->join('userBranchMaintenance as b', 'b.chainCode', '=', 'a.chainCode')
+            //         ->select('a.chainCode')
+            //         ->where('b.userID', $request->userID)
+            //         ->where('a.company', $company)
+            //         ->where('b.request', null)
+            //         // ->orWhere('a.chainCode', 'SM DEPT. STORE')
+            //         ->where('a.status', 'Active')
+            //         ->distinct()
+            //         ->orderby('a.chainCode')
+            //         ->get();
+        // }
 
         return response()->json($data);
     }
@@ -213,107 +190,116 @@ class FetchController extends Controller
 
     public function fetchChainNameByUser(Request $request){
 
-        $company = $request->company;
+        // $company = $request->company;
 
-        $data = DB::table('epcbranchmaintenance as a')
-                ->join('userBranchMaintenance as b', 'b.branchName', '=', 'a.branchName')
-                ->select('a.branchName')
-                ->where('b.userID', $request->userID)
-                ->where('a.chainCode', $request->chainCode)
+        $data = DB::table('userBranchMaintenance')
+                ->select('branchName', 'date_start', 'date_end', 'permanent')
+                ->where('userID', $request->userID)
+                ->where('chainCode', $request->chainCode)
                 ->where(function ($query) {
                     $query->where('request', null)
                         ->orWhere('request', 'remove');
                 })
-                ->where('a.status', 'Active')
+                // ->where('a.status', 'Active')
                 ->distinct()
-                ->orderby('a.branchName')
+                ->orderby('branchName')
                 ->get();
-        if($company == "EPC"){
-            $data = DB::table('epcbranchmaintenance as a')
-                    ->join('userBranchMaintenance as b', 'b.branchName', '=', 'a.branchName')
-                ->select('a.branchName')
-                ->where('b.userID', $request->userID)
-                ->where('a.chainCode', $request->chainCode)
-                ->where(function ($query) {
-                    $query->where('request', null)
-                        ->orWhere('request', 'remove');
-                })
-                ->where('a.status', 'Active')
-                ->distinct()
-                ->orderby('a.branchName')
-                ->get();
-        }else if($company == "AHLC"){
-            $data = DB::table('epcbranchmaintenance as a')
-                    ->join('userBranchMaintenance as b', 'b.branchName', '=', 'a.branchName')
-                ->select('a.branchName')
-                ->where('b.userID', $request->userID)
-                ->where('a.chainCode', $request->chainCode)
-                ->where(function ($query) {
-                    $query->where('request', null)
-                        ->orWhere('request', 'remove');
-                })
-                ->where('a.status', 'Active')
-                ->distinct()
-                ->orderby('a.branchName')
-                ->get();
-        }else if($company == "ASC"){
-            $data1 = DB::table('epcbranchmaintenance as a')
-                    ->join('userBranchMaintenance as b', 'b.branchName', '=', 'a.branchName')
-                    ->select('a.branchName')
-                    ->where('b.userID', $request->userID)
-                    ->where('a.chainCode', $request->chainCode)
-                    ->where(function ($query) {
-                        $query->where('request', null)
-                            ->orWhere('request', 'remove');
-                    })
-                    ->where('a.status', 'Active')
-                    ->distinct()
-                    ->orderby('a.branchName')
-                    ->get();
 
-            $data2 = DB::table('epcbranchmaintenance as a')
-                    ->join('userBranchMaintenance as b', 'b.branchName', '=', 'a.branchName')
-                    ->select('a.branchName')
-                    ->where('b.userID', $request->userID)
-                    ->where('a.chainCode', $request->chainCode)
-                    ->where(function ($query) {
-                        $query->where('request', null)
-                            ->orWhere('request', 'remove');
-                    })
-                    ->where('a.status', 'Active')
-                    ->distinct()
-                    ->orderby('a.branchName')
-                    ->get();
-            $data = $data2->union($data1);
-        }else if($company == "CMC"){
-            $data = DB::table('epcbranchmaintenance as a')
-                    ->join('userBranchMaintenance as b', 'b.branchName', '=', 'a.branchName')
-                    ->select('a.branchName')
-                    ->where('b.userID', $request->userID)
-                    ->where('a.chainCode', $request->chainCode)
-                    ->where(function ($query) {
-                        $query->where('request', null)
-                            ->orWhere('request', 'remove');
-                    })
-                    ->where('a.status', 'Active')
-                    ->distinct()
-                    ->orderby('a.branchName')
-                    ->get();
-        }else if($company == "NBFI"){
-            $data = DB::table('epcbranchmaintenance as a')
-                    ->join('userBranchMaintenance as b', 'b.branchName', '=', 'a.branchName')
-                    ->select('a.branchName')
-                    ->where('b.userID', $request->userID)
-                    ->where('a.chainCode', $request->chainCode)
-                    ->where(function ($query) {
-                        $query->where('request', null)
-                            ->orWhere('request', 'remove');
-                    })
-                    ->where('a.status', 'Active')
-                    ->distinct()
-                    ->orderby('a.branchName')
-                    ->get();
+        foreach ($data as $key => $value) {
+            $isStartDate = new \DateTime($value->date_start);
+            $isEndDate = new \DateTime($value->date_end);
+            $today = new \DateTime();
+            $today->setTime(0, 0, 0, 0);
+
+            if (!($isStartDate <= $today && $isEndDate >= $today) && !$value->permanent)
+                unset($data[$key]);
         }
+        // if($company == "EPC"){
+        //     $data = DB::table('epcbranchmaintenance as a')
+        //             ->join('userBranchMaintenance as b', 'b.branchName', '=', 'a.branchName')
+        //         ->select('a.branchName')
+        //         ->where('b.userID', $request->userID)
+        //         ->where('a.chainCode', $request->chainCode)
+        //         ->where(function ($query) {
+        //             $query->where('request', null)
+        //                 ->orWhere('request', 'remove');
+        //         })
+        //         ->where('a.status', 'Active')
+        //         ->distinct()
+        //         ->orderby('a.branchName')
+        //         ->get();
+        // }else if($company == "AHLC"){
+        //     $data = DB::table('epcbranchmaintenance as a')
+        //             ->join('userBranchMaintenance as b', 'b.branchName', '=', 'a.branchName')
+        //         ->select('a.branchName')
+        //         ->where('b.userID', $request->userID)
+        //         ->where('a.chainCode', $request->chainCode)
+        //         ->where(function ($query) {
+        //             $query->where('request', null)
+        //                 ->orWhere('request', 'remove');
+        //         })
+        //         ->where('a.status', 'Active')
+        //         ->distinct()
+        //         ->orderby('a.branchName')
+        //         ->get();
+        // }else if($company == "ASC"){
+        //     $data1 = DB::table('epcbranchmaintenance as a')
+        //             ->join('userBranchMaintenance as b', 'b.branchName', '=', 'a.branchName')
+        //             ->select('a.branchName')
+        //             ->where('b.userID', $request->userID)
+        //             ->where('a.chainCode', $request->chainCode)
+        //             ->where(function ($query) {
+        //                 $query->where('request', null)
+        //                     ->orWhere('request', 'remove');
+        //             })
+        //             ->where('a.status', 'Active')
+        //             ->distinct()
+        //             ->orderby('a.branchName')
+        //             ->get();
+
+        //     $data2 = DB::table('epcbranchmaintenance as a')
+        //             ->join('userBranchMaintenance as b', 'b.branchName', '=', 'a.branchName')
+        //             ->select('a.branchName')
+        //             ->where('b.userID', $request->userID)
+        //             ->where('a.chainCode', $request->chainCode)
+        //             ->where(function ($query) {
+        //                 $query->where('request', null)
+        //                     ->orWhere('request', 'remove');
+        //             })
+        //             ->where('a.status', 'Active')
+        //             ->distinct()
+        //             ->orderby('a.branchName')
+        //             ->get();
+        //     $data = $data2->union($data1);
+        // }else if($company == "CMC"){
+        //     $data = DB::table('epcbranchmaintenance as a')
+        //             ->join('userBranchMaintenance as b', 'b.branchName', '=', 'a.branchName')
+        //             ->select('a.branchName')
+        //             ->where('b.userID', $request->userID)
+        //             ->where('a.chainCode', $request->chainCode)
+        //             ->where(function ($query) {
+        //                 $query->where('request', null)
+        //                     ->orWhere('request', 'remove');
+        //             })
+        //             ->where('a.status', 'Active')
+        //             ->distinct()
+        //             ->orderby('a.branchName')
+        //             ->get();
+        // }else if($company == "NBFI"){
+        //     $data = DB::table('epcbranchmaintenance as a')
+        //             ->join('userBranchMaintenance as b', 'b.branchName', '=', 'a.branchName')
+        //             ->select('a.branchName')
+        //             ->where('b.userID', $request->userID)
+        //             ->where('a.chainCode', $request->chainCode)
+        //             ->where(function ($query) {
+        //                 $query->where('request', null)
+        //                     ->orWhere('request', 'remove');
+        //             })
+        //             ->where('a.status', 'Active')
+        //             ->distinct()
+        //             ->orderby('a.branchName')
+        //             ->get();
+        // }
 
         return response()->json($data);
     }
@@ -362,7 +348,7 @@ class FetchController extends Controller
     }
 
     public function fetchItems(Request $request){
-        if($request->barcode == "item_16"){
+        if($request->barcode == "16 Digits"){
             $data1 = DB::table('epc_items')
                 ->select('ItemNo', 'ItemDescription')
                 ->where('ItemNo', 'LIKE', '%'.$request->ItemNo)
@@ -374,12 +360,12 @@ class FetchController extends Controller
                     ->get();
         }else{
             $data1 = DB::table('epc_items_barcode')
-                ->select('Barcode','ItemNo', 'ItemDescription')
+                ->select('Barcode as ItemNo', 'ItemDescription')
                 ->where('Barcode', 'LIKE', '%'.$request->ItemNo)
                 ->get();
 
             $data2 = DB::table('epc_items_barcode')
-                    ->select('Barcode','ItemNo', 'ItemDescription')
+                    ->select('Barcode as ItemNo', 'ItemDescription')
                     ->where('Barcode', 'LIKE', $request->ItemNo.'%')
                     ->get();
         }
@@ -407,7 +393,7 @@ class FetchController extends Controller
 
     public function fetchItemsNBFI(Request $request){
 
-        if($request->barcode == "item_16"){
+        if($request->barcode == "16 Digits"){
             $data1 = DB::table('nbfi_items')
                     ->select('ItemNo', 'ItemDescription')
                     ->where('ItemNo', 'LIKE', '%'.$request->ItemNo)
@@ -1034,21 +1020,81 @@ class FetchController extends Controller
                         $query->where('request', null)
                             ->orWhere('request', 'remove');
                     })
-                    ->select('a.id', 'a.shortName', 'a.name')
+                    ->select('a.id', 'a.shortName', 'a.name', 'b.date_start', 'b.date_end', 'b.permanent')
                     ->distinct()
                     ->get();
 
-        return response()->json($company);
+        foreach ($company as $key => $value) {
+            $isStartDate = new \DateTime($value->date_start);
+            $isEndDate = new \DateTime($value->date_end);
+            $today = new \DateTime();
+            $today->setTime(0, 0, 0, 0);
+
+            if (!($isStartDate <= $today && $isEndDate >= $today) && !$value->permanent)
+                unset($company[$key]);
+        }
+        $newCompany = json_decode(json_encode($company), true);
+        // print_r($company);
+        // print_r(gettype($newCompany));
+        $newCompany = self::distinct_byKey_array($newCompany, 'shortName');
+        // print_r($newCompany);
+
+        return response()->json($newCompany);
+    }
+
+    //Distinct an array of objects by a property
+    public static function distinct_byKey_array($array, $key) {
+
+        $temp_array = array();
+    
+        $i = 0;
+    
+        $key_array = array();
+    
+        
+    
+        foreach($array as $val) {
+    
+            if (!in_array($val[$key], $key_array)) {
+    
+                $key_array[$i] = $val[$key];
+    
+                $temp_array[$i] = $val;
+    
+            }
+    
+            $i++;
+    
+        }
+    
+        return $temp_array;
+    
     }
 
     public function fetchUserRequestDraft(Request $request){
 
-        $company = $request->company;
+        // $company = $request->company;
 
-        $branchName = DB::table('userBranchMaintenance')
-                        ->select('branchName')
+        // $branchName = DB::table('userBranchMaintenance')
+        //                 ->select('branchName')
+        //                 ->where('userID', $request->userID)
+        //                 ->first()->branchName;
+        $branchList = DB::table('userBranchMaintenance')
+                        ->select('branchName', 'date_start', 'date_end', 'permanent')
+                        ->where('request', null)
                         ->where('userID', $request->userID)
-                        ->first()->branchName;
+                        ->get();
+
+        $branchNames = [];
+        foreach ($branchList as $key => $value) {
+            $isStartDate = new \DateTime($value->date_start);
+            $isEndDate = new \DateTime($value->date_end);
+            $today = new \DateTime();
+            $today->setTime(0, 0, 0, 0);
+
+            if ($isStartDate <= $today && $isEndDate >= $today || $value->permanent)
+                array_push($branchNames, $value->branchName);
+        }
 
         $data1 = DB::table('pullOutBranchTblNBFI as a')
                     ->select('a.id as plID', 'a.chainCode', 'a.branchName', 'company', 'a.transactionType',
@@ -1056,7 +1102,7 @@ class FetchController extends Controller
                         DB::raw('DATE_FORMAT(a.dateTime, "%h:%i %p") as time'), 'status',
                         'dateTime')
                     ->where('status', 'draft')
-                    ->where('branchName', $branchName);
+                    ->whereIn('branchName', $branchNames);
 
         $data2 = DB::table('pullOutBranchTbl as a')
                 ->select('a.id as plID', 'a.chainCode', 'a.branchName', 'company', 'a.transactionType',
@@ -1064,7 +1110,7 @@ class FetchController extends Controller
                     DB::raw('DATE_FORMAT(a.dateTime, "%h:%i %p") as time'), 'status',
                     'dateTime')
                 ->where('status', 'draft')
-                ->where('branchName', $branchName);
+                ->whereIn('branchName', $branchNames);
 
         $data = $data1->union($data2)
                     ->orderBy('dateTime', 'desc') // Order by the dummy column
@@ -1273,16 +1319,19 @@ class FetchController extends Controller
                         DB::raw('CONCAT(MONTHNAME(dateTime), " ", DATE_FORMAT(dateTime, "%d, %Y")) as date'),
                         DB::raw('DATE_FORMAT(dateTime, "%h:%i %p") as time'), 'b.Size')
                     ->where('plID', $request->plID)
+                    ->orderBy('boxNumber')
                     ->get();
             return response()->json($data);
 
         } else if($company == 'EPC' || $company == 'AHLC'){
             $data = DB::table('pullOutItemsTbl as a')
                     ->join('epc_items as b', 'a.itemCode', '=', 'b.ItemNo')
-                    ->select('a.id', 'plID', 'boxNumber', 'boxLabel', 'a.itemCode as code', DB::raw('CONCAT(b.ItemDescription, "-", b.Size) AS description'), 'b.Category as categorybrand', 'quantity', 'amount', 'status',
+                    ->select('a.id', 'plID', 'boxNumber', 'boxLabel', 'itemCode as code', DB::raw('CONCAT(b.ItemDescription) AS description'),
+                                'b.Size as size', 'b.ChildColor as color','a.brand as categorybrand', 'quantity', 'amount', 'status',
                         DB::raw('CONCAT(MONTHNAME(dateTime), " ", DATE_FORMAT(dateTime, "%d, %Y")) as date'),
                         DB::raw('DATE_FORMAT(dateTime, "%h:%i %p") as time'), 'b.Size')
                     ->where('plID', $request->plID)
+                    ->orderBy('boxNumber')
                     ->get();
             return response()->json($data);
 
@@ -1532,7 +1581,7 @@ class FetchController extends Controller
                     ->join('companyTbl as c', 'b.company', '=', 'c.shortName')
                     ->select('a.name', 'a.email', DB::raw('CONCAT(c.name, " (", c.shortName ,")") as company'), 'a.position', 'b.id', 'b.chainCode',
                             'b.branchName', DB::raw('CONCAT(MONTHNAME(a.created_at), " ", DATE_FORMAT(a.created_at, "%d, %Y")) as date'), 'a.status',
-                            'b.request', 'b.permanent')
+                            'b.request', 'b.permanent', 'date_start', 'date_end')
                     ->where('a.id', $request->userID)
                     // ->where(function ($query) {
                     //     $query->where('b.request', null)
@@ -1566,11 +1615,11 @@ class FetchController extends Controller
         //             ->where('company', $request->company)
         //             ->get();
 
-        if($request->company == "NBFI"){
+        if($request->company == "NBFI" || $request->company == "CMC" || $request->company == "ASC"){
             $imagePaths = DB::table('imageBranchDocTbl')
                         ->select('path')
                         ->where('transactionID', $request->transactionID)
-                        ->where('company', $request->company)
+                        ->where('company', 'NBFI')
                         ->get()
                         ->pluck('path')
                         ->map(function ($path) {
@@ -1581,7 +1630,7 @@ class FetchController extends Controller
             $imagePaths = DB::table('imageBranchDocTbl')
                         ->select('path')
                         ->where('transactionID', $request->transactionID)
-                        ->where('company', $request->company)
+                        ->where('company', 'EPC')
                         ->get()
                         ->pluck('path')
                         ->map(function ($path) {
