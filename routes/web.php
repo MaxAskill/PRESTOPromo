@@ -95,6 +95,8 @@ Route::middleware('auth')->group(function () {
     Route::post("/deleteImage", [PostController::class, 'deleteImage']);
 
     Route::get("/testing", [UpdateController::class, 'testing']);
+    Route::get("/deleteUsersNotVerified", [UpdateController::class, 'deleteUsersNotVerified']);
+
 
 });
 

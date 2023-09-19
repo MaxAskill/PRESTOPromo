@@ -405,8 +405,25 @@
           </div>
         </div>
       </div>
-      <el-dialog v-model="dialogVisible" center width="30%">
+      <el-dialog id="imgDialog" v-model="dialogVisible" center width="30%">
         <img w-full :src="dialogImageUrl" alt="Preview Image" />
+      </el-dialog>
+      <el-dialog
+        id="inactiveDialog"
+        v-model="inactiveUser"
+        :close-on-click-modal="false"
+        :close-on-press-escape="false"
+        :show-close="false"
+      >
+        <p class="text-center">
+          You have successfully created an account.<br /><br />However, your account is
+          temporarily unavailable. Kindly contact your Administrator.
+        </p>
+        <div class="inactiveButton mt-3.5">
+          <Link :href="route('logout')" method="post" as="button"
+            ><el-button type="primary">Okay</el-button></Link
+          >
+        </div>
       </el-dialog>
     </div>
 
@@ -425,15 +442,17 @@
 
 <script>
 import AuthenticatedLayout from "@/Layouts/DashboardLayout.vue";
-import { Head } from "@inertiajs/vue3";
+import { Head, Link } from "@inertiajs/vue3";
 import axios from "axios";
 import DeleteBoxLabelModal from "./DeleteBoxLabelModal.vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElButton, ElMessage, ElMessageBox, ElProgress, buttonEmits } from "element-plus";
+import { h } from "vue";
 
 export default {
   components: {
     AuthenticatedLayout,
     DeleteBoxLabelModal,
+    Link,
   },
   data() {
     return {
@@ -509,7 +528,7 @@ export default {
       isDraft: false,
       showItemInput: "",
       itemDigitsBarcode: "16 Digits",
-      saving_counter: null,
+      // saving_counter: null,
       transferTransactionID: null,
       newItemInput: "",
       newItemDescription: "",
@@ -533,6 +552,11 @@ export default {
       fileImagesTemp: [],
       // newImage: false,
       reloadOccurred: false,
+
+      loadingPercentage: 0,
+      intervalID: null,
+
+      inactiveUser: false,
     };
   },
   created() {
@@ -540,10 +564,13 @@ export default {
     window.addEventListener("resize", this.handleViewportResize);
   },
   mounted() {
-    this.handleViewportResize();
-    this.fetchEdit();
-    this.fetchCompany();
-    this.uploadImageKey = !this.uploadImageKey;
+    if (this.$page.props.auth.user.status == "Inactive") this.inactiveUser = true;
+    else {
+      this.handleViewportResize();
+      this.fetchEdit();
+      this.fetchCompany();
+      this.uploadImageKey = !this.uploadImageKey;
+    }
   },
   watch: {
     viewportWidth: {
@@ -587,6 +614,12 @@ export default {
     },
     itemDigitsBarcode: function () {
       this.newItemInput = "";
+    },
+    loadingPercentage: function () {
+      if (this.loadingPercentage == 100) {
+        clearInterval(this.intervalID);
+        location.replace("http://192.168.0.7:97/drafttransaction");
+      }
     },
   },
   methods: {
@@ -875,7 +908,7 @@ export default {
                 response.data.imagePaths.forEach((path) => {
                   let name = path.split("/");
                   name = name[name.length - 1];
-                  console.log("path: ", name, path);
+                  // console.log("path: ", name, path);
                   this.fileImages.push({
                     name: name,
                     url: path,
@@ -991,7 +1024,6 @@ export default {
         this.newItemInput = this.newItemInput.slice(0, 12);
       }
       if (this.itemDigitsBarcode == "12 Digits") {
-        console.log("12 Digits");
         axios
           .get("/fetchItemsBarcode", {
             params: {
@@ -1200,6 +1232,7 @@ export default {
     },
     clearSelectedItems(index) {
       this.$refs.itemsDataTable[index].clearSelection();
+      this.multipleSelection = [];
       this.deleteItemBtn = null;
     },
     deleteSelectedItems() {
@@ -1242,7 +1275,7 @@ export default {
       this.newTransaction.items.forEach((temp) => {
         if (deletedBoxNumber < temp.boxNumber) temp.boxNumber--;
       });
-      console.log("deleted", this.newTransaction.items);
+      // console.log("deleted", this.newTransaction.items);
     },
     reArrangeBoxNumber(transfer) {
       this.newTransaction.boxLabels = transfer;
@@ -1253,7 +1286,7 @@ export default {
         };
         this.newItemInputBox.push(tempIdBox);
       });
-      console.log("Delete Box Label: ", transfer, this.newTransaction.boxLabels);
+      // console.log("Delete Box Label: ", transfer, this.newTransaction.boxLabels);
     },
     transferDeletedItems(transfer) {
       transfer.forEach((item) => {
@@ -1303,7 +1336,7 @@ export default {
     //     .catch(() => false);
     // },
     handlePictureCardPreview(uploadFile) {
-      console.log(uploadFile);
+      // console.log(uploadFile);
       this.dialogImageUrl = uploadFile.url;
       this.dialogVisible = true;
     },
@@ -1325,8 +1358,7 @@ export default {
           }
         )
         .then((response) => {
-          console.log("Success Saved Image:", response.data);
-          this.saving_counter = this.saving_counter - 2;
+          // console.log("Success Saved Image:", response.data);
         })
         .catch((error) => {
           console.error(error);
@@ -1446,7 +1478,6 @@ export default {
             item.id = null;
           }
         });
-        console.log("Submit Items:", this.newTransaction.items);
         axios
           .post("/updatePullOutItemRequest", {
             plID: id,
@@ -1555,7 +1586,7 @@ export default {
               );
               item.boxLabel = labelBox.boxLabel;
             });
-            console.log("Draft Items: ", this.newTransaction.items);
+            // console.log("Draft Items: ", this.newTransaction.items);
 
             axios
               .post("/updatePullOutItemRequest", {
@@ -1684,7 +1715,7 @@ export default {
               setTimeout(() => {
                 instance.confirmButtonLoading = false;
               }, 300);
-            }, this.saving_counter * 1000);
+            }, 2000);
           } else {
             done();
           }
@@ -1695,15 +1726,37 @@ export default {
       });
     },
     openDraftMessageBox() {
-      ElMessageBox.alert("Draft has been saved.", {
-        // if you want to disable its autofocus
-        // autofocus: false,
-        confirmButtonText: "OK",
+      // ElMessageBox.alert("Draft has been saved.", {
+      //   // if you want to disable its autofocus
+      //   // autofocus: false,
+      //   confirmButtonText: "OK",
+      //   type: "success",
+      //   center: true,
+      //   callback: () => {
+      //     // console.log("Reload Page");
+      //     location.replace("http://192.168.0.7:97/drafttransaction");
+      //   },
+      // });
+      this.loadingPercentage = 1;
+      this.intervalID = setInterval(() => {
+        this.loadingPercentage = (this.loadingPercentage % 100) + 1;
+      }, 20);
+
+      ElMessageBox({
+        title: "Draft has been saved",
         type: "success",
         center: true,
-        callback: () => {
-          // console.log("Reload Page");
-          location.replace("http://192.168.0.7:97/drafttransaction");
+        showClose: false,
+        showConfirmButton: false,
+        closeOnClickModal: false,
+        closeOnPressEscape: false,
+        message: () => {
+          return h(ElProgress, {
+            percentage: this.loadingPercentage,
+            strokeWidth: 15,
+            striped: true,
+            stripedFlow: true,
+          });
         },
       });
     },
@@ -1732,41 +1785,74 @@ export default {
     max-width: 95vw !important;
     overflow-x: auto !important;
   }
-  .el-dialog {
+  #imgDialog .el-dialog {
     margin: 15vh auto 0px !important;
     border-radius: 10px !important;
     width: max-content !important;
   }
-  .el-dialog__body img {
+  #imgDialog .el-dialog__body img {
     max-width: 82vw !important;
     max-height: 50vh !important;
   }
 }
 @media only screen and (min-width: 501px) {
-  .el-dialog {
+  #imgDialog .el-dialog {
     margin: 10vh auto 0px !important;
     border-radius: 10px !important;
     width: max-content !important;
   }
-  .el-dialog__body img {
+  #imgDialog .el-dialog__body img {
     max-width: 75vw !important;
     max-height: 70vh !important;
   }
 }
 @media only screen and (min-width: 960px) {
-  .el-dialog__body img {
+  #imgDialog .el-dialog__body img {
     max-width: 45vw !important;
     max-height: 70vh !important;
   }
 }
 @media only screen and (min-width: 1300px) {
-  .el-dialog__body img {
+  #imgDialog .el-dialog__body img {
     max-width: 35vw !important;
     max-height: 70vh !important;
   }
 }
-.el-dialog__body img {
+#imgDialog .el-dialog__body img {
   width: 100% !important;
   height: 100% !important;
+}
+#inactiveDialog {
+  display: inline-block !important;
+  width: 93vw !important;
+  max-width: 420px !important;
+  margin: 0px !important;
+  /* margin: 10vh auto 0px !important; */
+  padding-bottom: 10px !important;
+  vertical-align: middle !important;
+  text-align: left !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%);
+}
+#inactiveDialog .el-dialog__body {
+  padding: 10px 27px 0px !important;
+}
+#inactiveDialog header {
+  margin: 0px !important;
+  padding: 0px !important;
+}
+
+.el-overlay-dialog {
+  text-align: center !important;
+  /* padding: 16px !important; */
+}
+.inactiveButton {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
 }
 </style>

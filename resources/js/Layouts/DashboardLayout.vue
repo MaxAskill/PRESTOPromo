@@ -26,6 +26,7 @@ export default {
       date: "",
       time: "",
       activeIndex: null,
+      labelHeader: "",
     };
   },
   watch: {
@@ -120,17 +121,21 @@ export default {
     this.handleViewportResize();
 
     switch (window.location.href.slice(window.location.href.lastIndexOf("/"))) {
-      case "/Ben":
+      case "/pulloutform":
         this.activeIndex = "2-1";
+        this.labelHeader = "Pull-Out Requisition Form";
         break;
       case "/drafttransaction":
         this.activeIndex = "2-2";
+        this.labelHeader = "Pull-Out Draft Documentation";
         break;
       case "/pullouttransactions":
         this.activeIndex = "2-3";
+        this.labelHeader = "Pull-Out Transactions";
         break;
       case "/myprofile":
         this.activeIndex = "1-1";
+        this.labelHeader = "My Profile";
         break;
     }
   },
@@ -248,6 +253,13 @@ export default {
               <el-icon v-if="showSideBar"><Fold /></el-icon>
               <el-icon v-else><Expand /></el-icon>
             </el-button>
+            <div
+              v-if="!(viewportWidth < 600 && showSideBar) || viewportWidth >= 600"
+              class="font-bold uppercase text-sm 4xs:text-base sm:text-xl subpixel-antialiased"
+            >
+              {{ labelHeader }}
+            </div>
+            <div class="w-2 sm:w-8 h-8"></div>
           </div>
         </div>
         <main>

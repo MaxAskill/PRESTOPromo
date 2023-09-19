@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\UpdateController;
 use App\Models\User;
 use App\Providers\RouteServiceProvider;
 use Illuminate\Auth\Events\Registered;
@@ -41,6 +42,9 @@ class RegisteredUserController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'position' => 'User',
+            'company' => null,
+            'status' => 'Inactive'
         ]);
 
         event(new Registered($user));
@@ -48,5 +52,7 @@ class RegisteredUserController extends Controller
         Auth::login($user);
 
         return redirect(RouteServiceProvider::HOME);
+        // $newRegister = new UpdateController;
+        // $newRegister->deleteUserNotVerified($user->id);
     }
 }

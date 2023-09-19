@@ -9,14 +9,34 @@
     <div class="py-4 z-0 max-h-[90vh] overflow-y-auto">
       <div class="w-auto px-2.5 3xs:px-3 2xs:px-4 sm:px-6 lg:px-8">
         <div class="bg-white p-6 rounded-xl drop-shadow-lg">
-          <div class="grid items-end lg:gap-6 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div class="grid items-end lg:gap-6 gap-3 grid-cols-1 lg:grid-cols-4">
+            <div class="relative grid grid-cols-2 gap-x-2">
+              <div class="">
+                <label class="text-gray-500 text-sm">Start Date</label><br />
+                <el-date-picker
+                  v-model="input"
+                  size="small"
+                  type="date"
+                  placeholder="Pick a Date"
+                />
+              </div>
+              <div class="">
+                <label class="text-gray-500 text-sm">End Date</label><br />
+                <el-date-picker
+                  v-model="input"
+                  size="small"
+                  type="date"
+                  placeholder="Pick a Date"
+                />
+              </div>
+            </div>
             <div class="relative">
               <label class="text-gray-500 text-sm">Company Name</label>
               <el-select
                 v-model="newTransaction.companyName"
                 class="w-full"
                 placeholder="Select Company Name"
-                size="large"
+                size="small"
                 @change="
                   fetchChainCode(),
                     (listBranchName = []),

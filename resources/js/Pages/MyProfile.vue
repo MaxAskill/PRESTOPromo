@@ -126,6 +126,7 @@
                 >
                 </el-table-column>
                 <el-table-column
+                  v-if="user.withRequest"
                   width="50"
                   header-align="center"
                   align="center"
@@ -255,10 +256,15 @@ export default {
           }
           this.tableData = [];
           let ctr = 0;
+
+          var today = new Date();
+          today.setHours(0, 0, 0, 0);
+
           for (let temp of response.data) {
+            let tempEndDate = new Date(temp.date_end);
             temp.date_start = DateTime.fromISO(temp.date_start).toFormat("MMMM dd, yyyy");
             temp.date_end = DateTime.fromISO(temp.date_end).toFormat("MMMM dd, yyyy");
-            if (!temp.permanent) this.tableData.push(temp);
+            if (!temp.permanent && tempEndDate >= today) this.tableData.push(temp);
             else {
               this.user.company = temp.company;
               this.user.chainCode = temp.chainCode;

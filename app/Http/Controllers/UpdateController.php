@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Models\TransactionModel;
+use DateTime;
 
 class UpdateController extends Controller
 {
@@ -352,5 +353,31 @@ class UpdateController extends Controller
                     ->addDay();
         DB::table('userBranchMaintenance')->where('id', $request->id)->where('request', 'remove')->delete();
         DB::select("UPDATE userBranchMaintenance SET request = null, date_start = \"".$dateStart."\", date_end = \"".$dateEnd."\" WHERE id = \"".$request->id."\" AND request = 'additional'");
+    }
+
+    // public function deleteUserNotVerified($userID){
+    //     sleep(3600);
+    //     $newUser = DB::table('users')->find($userID);
+    //     if($newUser->email_verified_at == null)
+    //         DB::table('users')
+    //             ->where('id', $userID)
+    //             ->delete();
+    // }
+
+    //By Cron
+    public function deleteUsersNotVerified(){
+        $users = DB::table('users')
+            ->where('email_verified_at', null)
+            ->select('created_at', 'id')->get();
+
+        foreach ($users as $key => $value) {
+            $dateTime = new DateTime($value->created_at);
+            $now = new DateTime();
+            $timeExceeds = $now->getTimestamp() - $dateTime->getTimestamp();
+            if($timeExceeds > 3600)
+                DB::table('users')
+                    ->where('id', $value->id)
+                    ->delete();
+        }
     }
 }
