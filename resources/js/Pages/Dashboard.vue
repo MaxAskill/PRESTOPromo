@@ -411,7 +411,7 @@
           </div>
           <br />
           <div class="flex justify-center items-center gap-3">
-            <a href="http://192.168.0.7:97/pullouttransactions" v-if="showCancel"
+            <a href="http://104.199.254.102:80/pullouttransactions" v-if="showCancel"
               ><el-button type="warning">Cancel</el-button></a
             >
             <el-button @click="openMessageBox('draft')" type="warning" v-else
@@ -655,7 +655,7 @@ export default {
     loadingPercentage: function () {
       if (this.loadingPercentage == 100) {
         clearInterval(this.intervalID);
-        location.replace("http://192.168.0.7:97/drafttransaction");
+        location.replace("http://104.199.254.102:80/drafttransaction");
       }
     },
   },
@@ -1945,7 +1945,7 @@ export default {
         },
       }).then(() => {
         // console.log("Reload Page Submit");
-        location.replace("http://192.168.0.7:97/pullouttransactions");
+        location.replace("http://104.199.254.102:80/pullouttransactions");
       });
     },
     openDraftMessageBox() {
@@ -1957,7 +1957,7 @@ export default {
       //   center: true,
       //   callback: () => {
       //     // console.log("Reload Page");
-      //     location.replace("http://192.168.0.7:97/drafttransaction");
+      //     location.replace("http://104.199.254.102:80/drafttransaction");
       //   },
       // });
       this.loadingPercentage = 1;

@@ -228,7 +228,7 @@ export default {
     },
     handleEdit(index, row) {
       // window.location.href =
-      //   "http://192.168.0.7:97/pulloutform?transactionID=" +
+      //   "http://104.199.254.102:80/pulloutform?transactionID=" +
       //   row.plID +
       //   "&company=" +
       //   row.company;
@@ -236,7 +236,7 @@ export default {
       var tempTransactionID = this.convertToAlphanumeric("transactionID");
       var tempcompany = this.convertToAlphanumeric("company");
       location.href =
-        "http://192.168.0.7:97/pulloutform?" +
+        "http://104.199.254.102:80/pulloutform?" +
         tempTransactionID +
         "=" +
         row.plID +
