@@ -34,11 +34,11 @@
               </el-select>
             </div>
             <div class="relative">
-              <label class="text-gray-500 text-sm">Chain Code</label>
+              <label class="text-gray-500 text-sm">Chain Name</label>
               <el-select
                 v-model="newTransaction.chainCode"
                 class="w-full"
-                placeholder="Select Chain Code"
+                placeholder="Select Chain Name"
                 size="large"
                 @change="
                   fetchChainName(),
@@ -221,7 +221,6 @@
                       ref="itemsDataTable"
                       border
                       :data="tableData[indexBox]"
-                      style="width: 100%"
                       @select="handleSelect"
                       @select-all="handleSelectAll"
                       :row-class-name="tableRowClassName"
@@ -237,7 +236,7 @@
                           <b>{{ scope.row.code }}</b>
                         </template>
                       </el-table-column>
-                      <el-table-column label="Description" min-width="450">
+                      <el-table-column label="Description" min-width="300">
                         <template #default="scope">
                           {{ scope.row.description }}
                         </template>
@@ -251,14 +250,14 @@
                           {{ scope.row.size }}
                         </template>
                       </el-table-column>
-                      <el-table-column label="Color" width="120">
+                      <el-table-column label="Color" width="150">
                         <template #default="scope">
                           {{ scope.row.color }}
                         </template>
                       </el-table-column>
                       <el-table-column
                         :label="isNBFI ? 'Brand' : 'Category'"
-                        min-width="300"
+                        min-width="100"
                       >
                         <template #default="scope">
                           {{ scope.row.categorybrand }}
@@ -649,6 +648,7 @@ export default {
       this.isBranchName = false;
     },
     fetchItems(itemInput) {
+      console.log("Barcode", this.itemDigitsBarcode);
       if (itemInput.length >= 4) {
         if (
           this.newTransaction.companyName == "NBFI" ||
@@ -664,6 +664,7 @@ export default {
             }) // Make a GET request to the specified URL
             .then((response) => {
               this.itemCodeList = response.data; // Update the 'data' variable with the retrieved data
+              console.log("Items:", response.data);
             })
             .catch((error) => {
               // console.error(error.reponse); // Handle any errors that may occur
@@ -673,6 +674,7 @@ export default {
             .get("/fetchItems", {
               params: {
                 ItemNo: itemInput,
+                barcode: this.itemDigitsBarcode,
               },
             })
             .then((response) => {
@@ -826,6 +828,7 @@ export default {
         let parts = value.split(" - ");
         this.newItemInput = parts[0];
       }
+      console.log("Change: ", value);
     },
     addBoxLabel() {
       this.isBoxLabel = true;
@@ -1495,7 +1498,7 @@ export default {
     openSubmitMessageBox() {
       ElMessageBox({
         message:
-          "Your transaction has been processed successfully.<br /><br />Transaction Number<br /><b>" +
+          "Your transaction has been processed successfully.<br /><br />Transaction Number<br /><b class='font-size: 15px;'>" +
           this.transferTransactionID +
           "</b><br /><br />Please take a photo or screenshot the transaction number before closing this window.",
         showClose: false,

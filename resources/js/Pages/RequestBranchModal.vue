@@ -46,11 +46,11 @@
                 </el-select>
               </div>
               <div class="relative grid grid-cols-1">
-                <label class="text-gray-500 text-sm">Chain Code</label>
+                <label class="text-gray-500 text-sm">Chain Name</label>
                 <el-select
                   v-model="edit.ChainCode"
                   @change="fetchChainName(), (edit.BranchName = '')"
-                  placeholder="Select Chain Code"
+                  placeholder="Select Chain Name"
                 >
                   <el-option
                     v-for="chain in chainCodeList"
@@ -75,6 +75,7 @@
                   <el-date-picker
                     v-model="edit.StartDate"
                     type="date"
+                    :disabled-date="disabledDate"
                     placeholder="Pick a Date"
                   />
                 </div>
@@ -83,6 +84,7 @@
                   <el-date-picker
                     v-model="edit.EndDate"
                     type="date"
+                    :disabled-date="disabledDate"
                     placeholder="Pick a Date"
                   />
                 </div>
@@ -479,7 +481,7 @@ export default {
       ElMessageBox({
         title: "Your Request was Submitted",
         message:
-          "You can contact your authorized agent to immediately approve your request.",
+          "You can contact your authorized officer to immediately approve your request.",
         confirmButtonText: "OKAY",
         type: "success",
         center: true,
@@ -490,6 +492,9 @@ export default {
         this.$emit("fetchData");
         this.$emit("close");
       });
+    },
+    disabledDate(time) {
+      return time.getTime() < Date.now() - 8.64e7;
     },
   },
 };

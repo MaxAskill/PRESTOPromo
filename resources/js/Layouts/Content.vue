@@ -20,11 +20,11 @@
           </el-select>
         </div>
         <div class="relative">
-          <label class="text-gray-500 text-sm">Chain Code</label>
+          <label class="text-gray-500 text-sm">Chain Name</label>
           <el-select
             v-model="newTransaction.chainCode"
             class="w-full"
-            placeholder="Select Chain Code"
+            placeholder="Select Chain Name"
             size="large"
             @change="fetchChainName()"
           >

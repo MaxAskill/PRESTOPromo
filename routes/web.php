@@ -30,7 +30,7 @@ Route::get('/', function () {
 });
 
 Route::get('/pulloutform', function () {
-    return Inertia::render('DashboardBen', [
+    return Inertia::render('Dashboard', [
             'canLogin' => Route::has('login'),
             'canRegister' => Route::has('register'),
             'laravelVersion' => Application::VERSION,
@@ -38,13 +38,9 @@ Route::get('/pulloutform', function () {
         ]);
 })->middleware(['auth', 'verified'])->name('pulloutform');
 
-Route::get('/Ric', function () {
-    return Inertia::render('DashboardRic');
-})->middleware(['auth', 'verified'])->name('dashboardric');
-
-Route::get('/Ben', function () {
-    return Inertia::render('DashboardBen');
-})->middleware(['auth', 'verified'])->name('dashboardben');
+// Route::get('/Ben', function () {
+//     return Inertia::render('DashboardBen');
+// })->middleware(['auth', 'verified'])->name('dashboardben');
 
 Route::get('/drafttransaction', function () {
     return Inertia::render('DraftTransaction');

@@ -7,6 +7,7 @@ use App\Providers\RouteServiceProvider;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Session;
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 
@@ -23,10 +24,12 @@ class VerifyEmailController extends Controller
 
         if ($request->user()->markEmailAsVerified()) {
             event(new Verified($request->user()));
+
+            Session::flash('dataKey', 'Your email has been verified successfully!');
         }
         
         $logoutController = new AuthenticatedSessionController;
-        $logoutController->destroy();
+        $logoutController->destroy($request);
 
         return redirect()->intended(RouteServiceProvider::HOME.'?verified=1');
     }

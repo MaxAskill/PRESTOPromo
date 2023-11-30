@@ -314,7 +314,7 @@ class FetchController extends Controller
                     ->where('status', 'Y')
                     ->distinct()
                     ->orderby('brandNames')
-                    ->get();
+                    ->first();
         else if($request->companyType == 'NBFI' || $request->companyType == 'CMC' || $request->companyType == 'ASC')
             $data = DB::table('nbfibrandsmaintenance')
                     ->select('brandNames')
@@ -322,7 +322,7 @@ class FetchController extends Controller
                     ->where('status', 'Y')
                     ->distinct()
                     ->orderby('brandNames')
-                    ->get();
+                    ->first();
 
         return response()->json($data);
     }
@@ -349,41 +349,37 @@ class FetchController extends Controller
 
     public function fetchItems(Request $request){
         if($request->barcode == "16 Digits"){
-            $data1 = DB::table('epc_items')
-                ->select('ItemNo', 'ItemDescription')
-                ->where('ItemNo', 'LIKE', '%'.$request->ItemNo)
-                ->get();
-
-            $data2 = DB::table('epc_items')
+            $data = DB::table('epc_items_barcode')
                     ->select('ItemNo', 'ItemDescription')
-                    ->where('ItemNo', 'LIKE', $request->ItemNo.'%')
+                    ->where(function ($query) use ($request) {
+                        $query->where('ItemNo', 'LIKE', '%' . $request->ItemNo)
+                            ->orWhere('ItemNo', 'LIKE', $request->ItemNo . '%');
+                    })
+                    ->limit(50)
                     ->get();
         }else{
-            $data1 = DB::table('epc_items_barcode')
-                ->select('Barcode as ItemNo', 'ItemDescription')
-                ->where('Barcode', 'LIKE', '%'.$request->ItemNo)
-                ->get();
-
-            $data2 = DB::table('epc_items_barcode')
+            $data = DB::table('epc_items_barcode')
                     ->select('Barcode as ItemNo', 'ItemDescription')
-                    ->where('Barcode', 'LIKE', $request->ItemNo.'%')
+                    ->where(function ($query) use ($request) {
+                        $query->where('Barcode', 'LIKE', '%' . $request->ItemNo)
+                            ->orWhere('Barcode', 'LIKE', $request->ItemNo . '%');
+                    })
+                    ->limit(50)
                     ->get();
         }
-
-        $data = $data1->union($data2);
 
         return response()->json($data);
     }
 
     public function compareItemCode(Request $request){
         if($request->companyType == 'EPC' || $request->companyType == 'AHLC')
-            $data = DB::table('epc_items')
+            $data = DB::table('epc_items_barcode')
                     ->select('ItemNo', 'ItemDescription', 'StyleCode')
                     ->where('ItemNo', '=' ,$request->ItemNo)
                     ->get();
 
         else if($request->companyType == 'NBFI' || $request->companyType == 'CMC' || $request->companyType == 'ASC')
-            $data = DB::table('nbfi_items')
+            $data = DB::table('nbfi_items_barcode')
                     ->select('ItemNo', 'ItemDescription', 'StyleCode')
                     ->where('ItemNo', '=' ,$request->ItemNo)
                     ->get();
@@ -394,30 +390,30 @@ class FetchController extends Controller
     public function fetchItemsNBFI(Request $request){
 
         if($request->barcode == "16 Digits"){
-            $data1 = DB::table('nbfi_items')
-                    ->select('ItemNo', 'ItemDescription')
-                    ->where('ItemNo', 'LIKE', '%'.$request->ItemNo)
-                    ->get();
+            $data = DB::table('nbfi_items_barcode')
+                            ->select('ItemNo', 'ItemDescription')
+                            ->when($request->ItemNo, function ($query) use ($request) {
+                                $query->where('ItemNo', 'LIKE', '%' . $request->ItemNo . '%')
+                                    ->orWhere('ItemNo', 'LIKE', $request->ItemNo . '%');
+                            })
+                            ->limit(50)
+                            ->orderBy('ItemNo') // You may want to order the results for consistency
+                            ->get();
 
-            $data2 = DB::table('nbfi_items')
-                    ->select('ItemNo', 'ItemDescription')
-                    ->where('ItemNo', 'LIKE', $request->ItemNo.'%')
-                    ->get();
+
+
         }else{
-            $data1 = DB::table('nbfi_items_barcode')
-                    ->select('Barcode as ItemNo', 'ItemDescription')
-                    ->where('Barcode', 'LIKE', '%'.$request->ItemNo)
-                    ->get();
+            $data = DB::table('nbfi_items_barcode')
+                            ->select('Barcode as ItemNo', 'ItemDescription')
+                            ->when($request->ItemNo, function ($query) use ($request) {
+                                $query->where('Barcode', 'LIKE', '%' . $request->ItemNo . '%')
+                                    ->orWhere('Barcode', 'LIKE', $request->ItemNo . '%');
+                            })
+                            ->limit(50)
+                            ->orderBy('ItemNo') // You may want to order the results for consistency
+                            ->get();
 
-            $data2 = DB::table('nbfi_items_barcode')
-                    ->select('Barcode as ItemNo', 'ItemDescription')
-                    ->where('Barcode', 'LIKE', $request->ItemNo.'%')
-                    ->get();
         }
-
-
-        $data = $data1->union($data2);
-
         return response()->json($data);
     }
 
@@ -425,14 +421,14 @@ class FetchController extends Controller
 
         if($request->company == "NBFI" || $request->company == "ASC" || $request->company == "CMC"){
             $data = DB::table('nbfi_items_barcode')
-                        ->select('ItemNo', 'ItemDescription')
+                        ->select('ItemNo')
                         ->where('Barcode', $request->ItemNo)
-                        ->get();
+                        ->first();
         }else {
             $data = DB::table('epc_items_barcode')
-                        ->select('ItemNo', 'ItemDescription')
+                        ->select('ItemNo')
                         ->where('Barcode', $request->ItemNo)
-                        ->get();
+                        ->first();
         }
 
 
@@ -441,18 +437,6 @@ class FetchController extends Controller
 
     public function fetchPullOutRequest(){
 
-        // $data = DB::table('pullOutTbl')
-        //         ->select('plID', 'chainCode', 'branchName',
-        //         'brand', 'transactionType', 'dateTime')
-        //         ->distinct()
-        //         ->get();
-        // $data = DB::table('pullOutTbl as a')
-        //         ->join('companyTbl as b', 'a.company', '=', 'b.id')
-        //         ->select(DB::raw(('(SELECT shortName FROM companyTbl WHERE id = a.company) as company')),'a.plID', 'a.chainCode', 'a.branchName', 'a.amount',
-        //         'a.brand', 'a.transactionType', DB::raw('CAST(a.dateTime AS DATE) as date'),
-        //         DB::raw('TIME(dateTime) as time'))
-        //         ->distinct()
-        //         ->get();
 
         $data = DB::table('pullOutTbl as a')
                 ->join('companyTbl as b', 'a.company', '=', 'b.id')
@@ -652,19 +636,24 @@ class FetchController extends Controller
 
     public function fetchPullOutRequestItem(Request $request){
 
-        if($request->company == "EPC" || $request->company == "AHLC"){
-            $data = DB::table('pullOutItemsTbl')
+        if($request->company == "EPC" || $request->company == "AHLC")
+            $table = 'pullOutItemsTbl';
+        else if ($request->company == "NBFI" || $request->company == "CMC" || $request->company == "ASC")
+            $table = 'pullOutItemsTblNBFI';
+
+        $data = DB::table($table)
                     ->select('id','plID', 'boxNumber', 'boxLabel', 'brand', 'itemCode', 'quantity', 'editedBy', 'amount')
                     ->where('status', '!=', 'deleted')
                     ->where('plID', '=', $request->plID)
-                    ->orderBy('boxLabel')
+                    ->orderBy('boxNumber')
+                    ->orderBy('brand')
                     ->get();
 
             //GETTING THE BOX COUNT
-            $box = DB::table('pullOutItemsTbl')
-                    ->select('boxLabel')
+            $box = DB::table($table)
+                    ->select('boxNumber')
                     ->where('plID', $request->plID)
-                    ->groupBy('boxLabel')
+                    ->groupBy('boxNumber')
                     ->get();
 
             $boxCount = $box->count();
@@ -679,34 +668,6 @@ class FetchController extends Controller
 
             $singleData = ['totalAmount' => $totalAmount, 'boxCount' => $boxCount, 'totalItems' => $totalItems];
             return response()->json([$data, $singleData]);
-
-        }else if ($request->company == "NBFI" || $request->company == "CMC" || $request->company == "ASC") {
-            $data = DB::table('pullOutItemsTblNBFI')
-                    ->select('id','plID', 'boxNumber', 'boxLabel', 'brand', 'itemCode', 'quantity', 'editedBy', 'amount')
-                    ->where('status', '!=', 'deleted')
-                    ->where('plID', '=', $request->plID)
-                    ->orderBy('boxLabel')
-                    ->get();
-
-            //GETTING THE BOX COUNT
-            $box = DB::table('pullOutItemsTblNBFI')
-                    ->select('boxLabel')
-                    ->where('plID', $request->plID)
-                    ->groupBy('boxLabel')
-                    ->get();
-
-            $boxCount = $box->count();
-            $totalItems = $data->count();
-            $totalAmount = 0;
-            foreach ($data as $item){
-                $item->amount = number_format($item->amount, 2, '.', ',');
-                $totalAmount = $totalAmount + floatval($item->amount);
-            }
-            $totalAmount = number_format($totalAmount, 2, '.', ',');
-            $singleData = ['totalAmount' => $totalAmount, 'boxCount' => $boxCount, 'totalItems' => $totalItems];
-            return response()->json([$data, $singleData]);
-
-        }
 
     }
 
@@ -1046,29 +1007,29 @@ class FetchController extends Controller
     public static function distinct_byKey_array($array, $key) {
 
         $temp_array = array();
-    
+
         $i = 0;
-    
+
         $key_array = array();
-    
-        
-    
+
+
+
         foreach($array as $val) {
-    
+
             if (!in_array($val[$key], $key_array)) {
-    
+
                 $key_array[$i] = $val[$key];
-    
+
                 $temp_array[$i] = $val;
-    
+
             }
-    
+
             $i++;
-    
+
         }
-    
+
         return $temp_array;
-    
+
     }
 
     public function fetchUserRequestDraft(Request $request){
@@ -1084,6 +1045,8 @@ class FetchController extends Controller
                         ->where('request', null)
                         ->where('userID', $request->userID)
                         ->get();
+
+        // print_r($branchList);
 
         $branchNames = [];
         foreach ($branchList as $key => $value) {
@@ -1102,6 +1065,7 @@ class FetchController extends Controller
                         DB::raw('DATE_FORMAT(a.dateTime, "%h:%i %p") as time'), 'status',
                         'dateTime')
                     ->where('status', 'draft')
+                    ->where('promoEmail', $request->promoEmail)
                     ->whereIn('branchName', $branchNames);
 
         $data2 = DB::table('pullOutBranchTbl as a')
@@ -1110,6 +1074,7 @@ class FetchController extends Controller
                     DB::raw('DATE_FORMAT(a.dateTime, "%h:%i %p") as time'), 'status',
                     'dateTime')
                 ->where('status', 'draft')
+                ->where('promoEmail', $request->promoEmail)
                 ->whereIn('branchName', $branchNames);
 
         $data = $data1->union($data2)
@@ -1126,9 +1091,16 @@ class FetchController extends Controller
         $data1 = DB::table('pullOutBranchTblNBFI as a')
                 ->join('companyTbl as b', 'a.company', '=', 'b.shortName')
                 ->join('users as c', 'a.promoEmail', '=', 'c.email')
+                ->leftJoin('pullOutLetterDates as d', function($join) {
+                    $join->on('a.id', '=', 'd.plID')
+                         ->where('d.company', '=', 'NBFI'); // Add this condition for the company
+                })
                 ->select('a.id as plID', 'a.chainCode', 'a.branchName', DB::raw('CONCAT(b.name, " (", b.shortName ,")") as company'), 'a.transactionType',
                     DB::raw('CONCAT(MONTHNAME(a.dateTime), " ", DATE_FORMAT(a.dateTime, "%d, %Y")) as date'),
                     DB::raw('CONCAT(MONTHNAME(a.updated_at), " ", DATE_FORMAT(a.updated_at, "%d, %Y")) as reviewedDate'),
+                    DB::raw('CONCAT(MONTHNAME(d.dateStart), " ", DATE_FORMAT(d.dateStart, "%d, %Y")) as pullOutStartedDate'),
+                    DB::raw('CONCAT(MONTHNAME(d.dateEnd), " ", DATE_FORMAT(d.dateEnd, "%d, %Y")) as pullOutEndDate'),
+                    'd.authorizedPersonnel',
                     DB::raw('DATE_FORMAT(a.dateTime, "%h:%i %p") as time'), 'a.status',
                     'dateTime', 'editedBy as reviewedBy', 'approvedBy',
                     DB::raw('CONCAT(MONTHNAME(a.approvedDate), " ", DATE_FORMAT(a.approvedDate, "%d, %Y")) as approvedDate'), 'c.name as createdBy')
@@ -1138,9 +1110,16 @@ class FetchController extends Controller
         $data2 = DB::table('pullOutBranchTbl as a')
                 ->join('companyTbl as b', 'a.company', '=', 'b.shortName')
                 ->join('users as c', 'a.promoEmail', '=', 'c.email')
+                ->leftJoin('pullOutLetterDates as d', function($join) {
+                    $join->on('a.id', '=', 'd.plID')
+                         ->where('d.company', '=', 'EPC'); // Add this condition for the company
+                })
                 ->select('a.id as plID', 'a.chainCode', 'a.branchName', DB::raw('CONCAT(b.name, " (", b.shortName ,")") as company'), 'a.transactionType',
                     DB::raw('CONCAT(MONTHNAME(a.dateTime), " ", DATE_FORMAT(a.dateTime, "%d, %Y")) as date'),
                     DB::raw('CONCAT(MONTHNAME(a.updated_at), " ", DATE_FORMAT(a.updated_at, "%d, %Y")) as reviewedDate'),
+                    DB::raw('CONCAT(MONTHNAME(d.dateStart), " ", DATE_FORMAT(d.dateStart, "%d, %Y")) as pullOutStartedDate'),
+                    DB::raw('CONCAT(MONTHNAME(d.dateEnd), " ", DATE_FORMAT(d.dateEnd, "%d, %Y")) as pullOutEndDate'),
+                    'd.authorizedPersonnel',
                     DB::raw('DATE_FORMAT(a.dateTime, "%h:%i %p") as time'), 'a.status',
                     'dateTime', 'editedBy as reviewedBy', 'approvedBy',
                     DB::raw('CONCAT(MONTHNAME(a.approvedDate), " ", DATE_FORMAT(a.approvedDate, "%d, %Y")) as approvedDate'), 'c.name as createdBy')
@@ -1160,34 +1139,38 @@ class FetchController extends Controller
         $company = $request->company;
         if($company == "NBFI" || $company == "ASC" || $company == "CMC"){
            if($request->StyleCode === ' '){
-            $data = DB::table('nbfi_items')
+            $data = DB::table('nbfi_items_barcode')
                     ->select('ItemNo', 'ItemDescription', 'Size', 'StyleCode', 'ChildColor as Color', 'Category')
                     ->where('ItemDescription', $request->ItemDescription)
                     ->groupBy('ItemNo', 'ItemDescription', 'Size', 'StyleCode', 'ChildColor', 'Category')
+                    ->orderBy('ChildColor')
                     ->get();
            }else{
-            $data = DB::table('nbfi_items')
+            $data = DB::table('nbfi_items_barcode')
                         ->select('ItemNo', 'ItemDescription', 'Size', 'StyleCode', 'ChildColor as Color', 'Category')
                         ->where('ItemDescription', $request->ItemDescription)
                         ->where('StyleCode', $request->StyleCode)
                         ->groupBy('ItemNo', 'ItemDescription', 'Size', 'StyleCode', 'ChildColor', 'Category')
+                        ->orderBy('ChildColor')
                         ->get();
            }
 
         }else {
            if($request->StyleCode === ' '){
 
-            $data = DB::table('epc_items')
+            $data = DB::table('epc_items_barcode')
                         ->select('ItemNo', 'ItemDescription', 'Size', 'StyleCode', 'ChildColor as Color', 'Category')
                         ->where('ItemDescription', $request->ItemDescription)
                         ->groupBy('ItemNo', 'ItemDescription', 'Size', 'StyleCode', 'ChildColor', 'Category')
+                        ->orderBy('ChildColor')
                         ->get();
             }else{
-            $data = DB::table('epc_items')
+            $data = DB::table('epc_items_barcode')
                         ->select('ItemNo', 'ItemDescription', 'Size', 'StyleCode', 'ChildColor as Color', 'Category')
                         ->where('ItemDescription', $request->ItemDescription)
                         ->where('StyleCode', $request->StyleCode)
                         ->groupBy('ItemNo', 'ItemDescription', 'Size', 'StyleCode', 'ChildColor', 'Category')
+                        ->orderBy('ChildColor')
                         ->get();
             }
         }
@@ -1312,44 +1295,53 @@ class FetchController extends Controller
     public function fetchEditDraftItem(Request $request){
         $company = $request->company;
         if($company == 'NBFI' || $company == 'ASC' || $company == 'CMC'){
-            $data = DB::table('pullOutItemsTblNBFI as a')
-                    ->join('nbfi_items as b', 'a.itemCode', '=', 'b.ItemNo')
-                    ->select('a.id', 'plID', 'boxNumber', 'boxLabel', 'itemCode as code', DB::raw('CONCAT(b.ItemDescription) AS description'),
-                                'b.Size as size', 'b.ChildColor as color','a.brand as categorybrand', 'quantity', 'amount', 'status',
-                        DB::raw('CONCAT(MONTHNAME(dateTime), " ", DATE_FORMAT(dateTime, "%d, %Y")) as date'),
-                        DB::raw('DATE_FORMAT(dateTime, "%h:%i %p") as time'), 'b.Size')
-                    ->where('plID', $request->plID)
-                    ->orderBy('boxNumber')
-                    ->get();
-            return response()->json($data);
-
+            $table = 'pullOutItemsTblNBFI';
+            $items = 'nbfi_items_barcode';
         } else if($company == 'EPC' || $company == 'AHLC'){
-            $data = DB::table('pullOutItemsTbl as a')
-                    ->join('epc_items as b', 'a.itemCode', '=', 'b.ItemNo')
+            $table = 'pullOutItemsTbl';
+            $items = 'epc_items_barcode';
+        }
+
+        $data = DB::table( $table. ' as a')
+                    ->join($items. ' as b', 'a.itemCode', '=', 'b.ItemNo')
                     ->select('a.id', 'plID', 'boxNumber', 'boxLabel', 'itemCode as code', DB::raw('CONCAT(b.ItemDescription) AS description'),
                                 'b.Size as size', 'b.ChildColor as color','a.brand as categorybrand', 'quantity', 'amount', 'status',
                         DB::raw('CONCAT(MONTHNAME(dateTime), " ", DATE_FORMAT(dateTime, "%d, %Y")) as date'),
                         DB::raw('DATE_FORMAT(dateTime, "%h:%i %p") as time'), 'b.Size')
                     ->where('plID', $request->plID)
                     ->orderBy('boxNumber')
+                    ->orderBy('code')
                     ->get();
-            return response()->json($data);
 
+        $boxValue = $data->pluck('boxNumber')->unique()->values();
+        $boxCount = $boxValue->max();
+
+        if(count($boxValue) != $boxCount){
+            forEach ($boxValue as $key => $value) {
+                forEach($data as $items){
+                    if($items->boxNumber == $value){
+                         $items->boxNumber = $key + 1;
+                    }
+                }
+             }
         }
+
+        return response()->json($data);
+
 
     }
 
     public function fetchNewAmount(Request $request){
 
         if($request->company == "NBFI"){
-            $amount = DB::table('nbfi_items')
+            $amount = DB::table('nbfi_items_barcode')
                         ->select('EffectivePrice')
                         ->where('ItemNo', $request->itemCode)
                         ->first();
 
             $totalAmount = floatval($amount->EffectivePrice) * floatval($request->quantity);
         }else{
-            $amount = DB::table('epc_items')
+            $amount = DB::table('epc_items_barcode')
                         ->select('EffectivePrice')
                         ->where('ItemNo', $request->itemCode)
                         ->first();
@@ -1522,7 +1514,7 @@ class FetchController extends Controller
         return response()->json($data);
     }
     public function fetchItemsNBFIExcel(Request $request){
-        $data = DB::table('nbfi_items')
+        $data = DB::table('nbfi_items_barcode')
                 ->select('ItemNo', 'ItemDescription')
                 ->where('ItemNo', $request->ItemNo)
                 ->get();
@@ -1531,7 +1523,7 @@ class FetchController extends Controller
     }
 
     public function fetchItemsEPCExcel(Request $request){
-        $data = DB::table('epc_items')
+        $data = DB::table('epc_items_barcode')
                 ->select('ItemNo', 'ItemDescription')
                 ->where('ItemNo', $request->ItemNo)
                 ->get();
@@ -1545,7 +1537,7 @@ class FetchController extends Controller
 
         if($company == "NBFI" || $company == "ASC" || $company == "CMC"){
 
-            $data = DB::table('nbfi_items as a')
+            $data = DB::table('nbfi_items_barcode as a')
                     ->join('nbfibrandsmaintenance as b', 'a.Brand', '=', 'b.id')
                     ->select('ItemNo', 'ItemDescription', 'Size', 'StyleCode', 'ChildColor as Color', 'brandNames', 'Category')
                     ->where("ItemNo", $request->ItemNo)
@@ -1554,7 +1546,7 @@ class FetchController extends Controller
 
         }else if($company == "EPC" || $company == "AHLC"){
 
-            $data = DB::table('epc_items as')
+            $data = DB::table('epc_items_barcode as a')
                     ->join('nbfibrandsmaintenance as b', 'a.Brand', '=', 'b.id')
                     ->select('ItemNo', 'ItemDescription', 'Size', 'StyleCode', 'ChildColor as Color', 'brandNames', 'Category')
                     ->where("ItemNo", $request->ItemNo)

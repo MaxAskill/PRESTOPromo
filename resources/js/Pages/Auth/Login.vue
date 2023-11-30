@@ -7,6 +7,8 @@ import PrimaryButton from "@/Components/PrimaryButton.vue";
 import TextInput from "@/Components/TextInput.vue";
 import { Head, Link, useForm } from "@inertiajs/vue3";
 
+import { watch, ref } from "vue";
+
 defineProps({
   canResetPassword: {
     type: Boolean,
@@ -22,11 +24,36 @@ const form = useForm({
   remember: false,
 });
 
+const isPromo = ref(true);
+
 const submit = () => {
-  form.post(route("login"), {
-    onFinish: () => form.reset("password"),
-  });
+  if (isPromo.value)
+    form.post(route("login"), {
+      onFinish: () => form.reset("password"),
+    });
+  else
+    window.location.href = `http://192.168.0.7:4040/#/login?${form.email}&${form.password}`;
 };
+
+watch(
+  () => form.email,
+  (email) => {
+    if (/^[\w.-]+@[a-zA-Z_-]+?\.[a-zA-Z]{2,3}$/.test(email)) {
+      var domain = email.split("@")[1];
+      var companyDomains = ["barbizonfashion.com", "everydayproductscorp.com"];
+
+      if (companyDomains.includes(domain)) {
+        // form.errors.email = "Reviewer or Approver are unable to sign in here.";
+        // form.processing = true;
+        isPromo.value = false;
+      } else {
+        // form.errors.email = "";
+        // form.processing = false;
+        isPromo.value = true;
+      }
+    }
+  }
+);
 </script>
 
 <template>

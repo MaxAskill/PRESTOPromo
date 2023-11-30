@@ -42,7 +42,7 @@ class UpdateController extends Controller
                         ->first();
 
             //GETTING THE EFFECTIVE PRICE OF THE SPECIFIC ITEM
-            $price = DB::table('epc_items')
+            $price = DB::table('epc_items_barcode')
                         ->select('EffectivePrice')
                         ->where('ItemNo', '=', $itemCode->itemCode)
                         ->first();
@@ -70,7 +70,7 @@ class UpdateController extends Controller
                         ->first();
 
             //GETTING THE EFFECTIVE PRICE OF THE SPECIFIC ITEM
-            $price = DB::table('nbfi_items')
+            $price = DB::table('nbfi_items_barcode')
                         ->select('EffectivePrice')
                         ->where('ItemNo', '=', $itemCode->itemCode)
                         ->first();
@@ -212,29 +212,117 @@ class UpdateController extends Controller
 
     public function updatePullOutBranchRequest(Request $request){
 
-        $date = now()->timezone('Asia/Manila'); // GETTING THE TIME ZONE IN PH
-        if($request->companyType == "NBFI" || $request->companyType == "CMC" || $request->companyType == "ASC"){
-            $data = DB::select('UPDATE pullOutBranchTblNBFI
-                                SET chainCode = \''.$request->chainCode.'\',
-                                company = \''.$request->companyType.'\',
-                                branchName = \''.$request->branchName.'\',
-                                transactionType = \''.$request->transactionType.'\',
-                                status = \''.$request->status.'\', dateTime = \''.$date.'\' WHERE id = \''.$request->id.'\'');
 
-        //  DB::select('DELETE FROM pullOutItemsTblNBFI WHERE plID = \''.$request->id.'\'');
+            $date = now()->timezone('Asia/Manila'); // GETTING THE TIME ZONE IN PH
 
-        } else if($request->companyType == "EPC" || $request->companyType == "AHLC"){
-            $data = DB::select('UPDATE pullOutBranchTbl
-                                SET chainCode = \''.$request->chainCode.'\',
-                                company = \''.$request->companyType.'\',
-                                branchName = \''.$request->branchName.'\',
-                                transactionType = \''.$request->transactionType.'\',
-                                status = \''.$request->status.'\', dateTime = \''.$date.'\' WHERE id = \''.$request->id.'\'');
+            // TRANSFER STATUS
+            $status = $request->status;
 
-            // DB::select('DELETE FROM pullOutItemsTbl WHERE plID = \''.$request->id.'\'');
-        }
+            // CHECK COMPANY
+            switch($request->companyType){
+                case "NBFI":
+                case "CMC":
+                case "ASC":
+                    $tbBranch = 'pullOutBranchTblNBFI';
+                    $tbItems = 'pullOutItemsTblNBFI';
+                    $tbPrice = 'nbfi_items_barcode';
+                    $old_data = PullOutBranchModelNBFI::find($request->id);
+                    break;
+                case "EPC":
+                case "AHLC":
+                    $tbBranch = 'pullOutBranchTbl';
+                    $tbItems = 'pullOutItemsTbl';
+                    $tbPrice = 'epc_items_barcode';
+                    $old_data = PullOutBranchModel::find($request->id);
+                    break;
+            }
+
+            // UPDATE ON BRANCH
+            $data = DB::table($tbBranch)
+                            ->where('id', $request->id)
+                            ->update([
+                                'chainCode' => $request->chainCode,
+                                'company' => $request->companyType,
+                                'branchName' => $request->branchName,
+                                'transactionType' => $request->transactionType,
+                                'status' => $status,
+                                'dateTime' => $date,
+                            ]);
+
+            // LOOP OF ITEMS
+            foreach ($request->items as $value) {
+                foreach ($request->boxes as $box){
+                    if($box['id'] == $value['boxNumber']){
+                        // CHECK COMPANY
+                        switch($request->companyType){
+                            case "NBFI":
+                            case "CMC":
+                            case "ASC":
+                                $tbItemSave = new PullOutItemModelNBFI();
+                                break;
+                            case "EPC":
+                            case "AHLC":
+                                $tbItemSave = new PullOutItemModel();
+                                break;
+                        }
+
+                        // CHECK IF HAVE ID
+                        if($value['id'])
+                            {
+                                // GETTING OLD DATA FOR LOGS
+                                $old_data = DB::table($tbItems)
+                                                ->select('quantity', 'boxLabel')
+                                                ->where('id', $value['id'])
+                                                ->get()
+                                                ->first();
+
+                                // CHECING IF NOT A DRAFT FOR STATUS
+                                if($request->status != "draft"){
+                                    if($old_data->quantity != $value['quantity'] || $old_data->boxLabel != $value['boxLabel'])
+                                        $status = "edited";
+                                }
+                            }
+                            // DELETE THE ITEM
+                            DB::table($tbItems)
+                                ->where('id', $value['id'])
+                                ->delete();
+
+                            // GETTING THE PRICE PER ITEM
+                            $price = DB::table($tbPrice)
+                                        ->select('EffectivePrice')
+                                        ->where('ItemNo', '=', $value['code'])
+                                        ->first();
+
+                        //COMPUTATION TOTAL AMOUNT
+                        $amount = floatval($price->EffectivePrice) * floatval($value['quantity']);
+
+                        $date = now()->timezone('Asia/Manila'); // GETTING THE TIME ZONE IN PH
+
+                        // FIELDS FOR ITEMS ON DB
+                        $tbItemSave->plID = $request->id;
+                        $tbItemSave->brand = $value['categorybrand'];
+                        $tbItemSave->boxNumber = $value['boxNumber'];
+                        $tbItemSave->boxLabel = $box['boxLabel'];
+                        $tbItemSave->itemCode = $value['code'];
+                        $tbItemSave->quantity = $value['quantity'];
+                        $tbItemSave->amount = $amount;
+                        $tbItemSave->status = $status;
+                        $tbItemSave->dateTime = $date;
+
+                        //SAVING
+                        $tbItemSave->save();
+                    }
+                }
+            }
+
+            // DELETING ITEMS
+            DB::table($tbItems)
+                ->whereIn('id', $request->removedItems)
+                ->delete();
 
         return response()->json($data);
+
+
     }
 
     public function testing(Request $request){
@@ -273,7 +361,7 @@ class UpdateController extends Controller
                                     WHERE id = \''.$value['id'].'\'');
 
                 $item = new PullOutItemModelNBFI();
-                $price = DB::table('nbfi_items')
+                $price = DB::table('nbfi_items_barcode')
                             ->select('EffectivePrice')
                             ->where('ItemNo', '=', $value['code'])
                             ->first();
@@ -300,7 +388,7 @@ class UpdateController extends Controller
                                     WHERE id = \''.$value['id'].'\'');
 
                 $item = new PullOutItemModel();
-                $price = DB::table('epc_items')
+                $price = DB::table('epc_items_barcode')
                             ->select('EffectivePrice')
                             ->where('ItemNo', '=', $value['code'])
                             ->first();
@@ -329,7 +417,7 @@ class UpdateController extends Controller
             DB::table('pullOutItemsTblNBFI')
                 ->whereIn('id', $request->removedItems)
                 ->delete();
-        else 
+        else
             DB::table('pullOutItemsTbl')
                 ->whereIn('id', $request->removedItems)
                 ->delete();

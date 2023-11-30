@@ -273,22 +273,22 @@
                 </div>
               </div>
               <br />
-              <div class="overflow-x-auto w-screen md:w-full">
+              <div class="overflow-x-auto w-screen md:w-full text-xs">
                 <el-table
                   class="w-full text-center text-xs"
                   :data="queriedTableData"
                   border
-                  max-height="290"
+                  max-height="360"
                 >
                   <el-table-column prop="itemCode" label="Item Code" width="160" />
-                  <el-table-column prop="brand" label="Brand/Category" width="250" />
+                  <el-table-column prop="brand" label="Brand/Category" width="200" />
                   <el-table-column
                     prop="boxNumber"
                     label="Box Number"
                     width="150"
                     align="center"
                   />
-                  <el-table-column label="Box Label" min-width="350">
+                  <el-table-column label="Box Label" min-width="400">
                     <template #default="prop">
                       <p class="text-gray-500">
                         BOX NO. {{ prop.row.boxNumber }} OF {{ totalBoxes }}
@@ -300,7 +300,8 @@
                   <el-table-column prop="amount" label="Amount" width="120">
                     <template #default="prop">
                       <p class="text-gray-500">
-                        {{ formatBoxAmount(prop.row.amount) }}
+                        ₱ {{ prop.row.amount }}
+                        <!-- {{ formatBoxAmount(prop.row.amount) }} -->
                       </p>
                     </template>
                   </el-table-column>
@@ -350,10 +351,13 @@
                         BOX NO. {{ prop.row.boxNumber }} OF {{ totalBoxes }}
                         {{ prop.row.boxLabel }}
                       </p>
-                      <p class="text-xs text-gray-500">
+                      <p class="text-xs text-gray-500 text-right">
                         <span>Quantity: </span>{{ prop.row.quantity }}
                       </p>
-                      <p class="text-xs text-gray-500">
+                      <p
+                        class="text-xs text-gray-500 text-right"
+                        style="text-align: right"
+                      >
                         <span>Amount: </span> {{ formatBoxAmount(prop.row.amount) }}
                       </p>
                     </template>
@@ -549,19 +553,26 @@ export default {
     totalItems() {
       let totals = 0;
       for (const item of this.itemData) {
-        console.log("B Amount", item.quantity);
+        // console.log("B Amount", item.quantity);
         totals += parseInt(item.quantity);
       }
-      return totals;
+      return totals.toLocaleString("en-US");
     },
     totalAmounts() {
       const totals = {};
+
+      //filtering the data with box numbers
+      const filteredData = this.itemData.filter((obj, index, self) => {
+        const boxNumber = obj.boxNumber;
+        return self.findIndex((o) => o.boxNumber === boxNumber) === index;
+      });
+
       for (const item of this.itemData) {
-        if (!totals[item.boxLabel]) {
-          totals[item.boxLabel] = 0;
-          // console.log("Amount", item.amount);
+        const key = `BOX NO. ${item.boxNumber} OF ${filteredData.length} ${item.boxLabel}`;
+        if (!totals[key]) {
+          totals[key] = 0;
         }
-        totals[item.boxLabel] += parseFloat(item.amount.replace(/,/g, ""));
+        totals[key] += parseFloat(item.amount.replace(/,/g, ""));
       }
 
       return totals;
@@ -630,7 +641,7 @@ export default {
     handlePictureCardPreview(uploadFile) {
       this.dialogImageUrl = uploadFile.url;
       this.dialogVisible = true;
-      console.log("Image List: ", this.fileImages);
+      // console.log("Image List: ", this.fileImages);
     },
     convertToAlphanumeric(input) {
       let result = "";

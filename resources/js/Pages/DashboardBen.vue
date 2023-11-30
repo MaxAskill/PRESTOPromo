@@ -35,11 +35,11 @@
               </el-select>
             </div>
             <div class="relative">
-              <label class="text-gray-500 text-sm">Chain Code</label>
+              <label class="text-gray-500 text-sm">Chain Name</label>
               <el-select
                 v-model="newTransaction.chainCode"
                 class="w-full"
-                placeholder="Select Chain Code"
+                placeholder="Select Chain Name"
                 size="large"
                 @change="
                   fetchChainName(),
@@ -125,6 +125,9 @@
               class="w-full"
               v-model="newBoxLabel"
               filterable
+              clearable
+              allow-create
+              default-first-option
               placeholder="Select or Enter the Box Label"
               popper-class="select-boxlabel"
               :popper-append-to-body="false"
@@ -295,7 +298,17 @@
                       </el-table-column>
                       <el-table-column label="Box Label" min-width="300">
                         <template #default="scope">
-                          <el-select class="w-full" v-model="scope.row.boxNumber">
+                          <el-select
+                            class="w-full"
+                            v-model="scope.row.boxNumber"
+                            @change="
+                              editBoxLabel(
+                                scope.row.code,
+                                scope.row.quantity,
+                                scope.row.boxNumber
+                              )
+                            "
+                          >
                             <el-option
                               v-for="boxLabel in newTransaction.boxLabels"
                               :value="boxLabel.boxNumber"
@@ -322,71 +335,76 @@
           <br />
           <div class="flex grid grid-cols-1">
             <div class="mb-2">
-              <label class="text-gray-500 text-sm"
+              <label class="text-gray-500 text-sm row"
                 >Upload Images (Up to 10 images [JPEG, PNG, and other image files] with a
                 maximum size of 2 MB per image will be accepted.)
               </label>
             </div>
+            <div class="mb-2">
+              <label class="text-red-500 text-sm row" v-if="showMaxImgMsg"
+                >You have reached the maximum number of images.
+              </label>
+            </div>
             <div>
-              <el-tooltip
+              <!-- <el-tooltip
                 content="You reached the maximum number of images."
                 :disabled="disableUploadTooltip"
+              > -->
+              <el-upload
+                :key="uploadImageKey"
+                ref="uploadImage"
+                action="#"
+                :limit="10"
+                list-type="picture-card"
+                accept="image/jpeg, image/png"
+                :auto-upload="false"
+                :http-request="handleFileSuccess"
+                v-model:file-list="fileImages"
+                :disabled="disableUploadImage"
               >
-                <el-upload
-                  :key="uploadImageKey"
-                  ref="uploadImage"
-                  action="#"
-                  :limit="10"
-                  list-type="picture-card"
-                  accept="image/jpeg, image/png"
-                  :auto-upload="false"
-                  :http-request="handleFileSuccess"
-                  v-model:file-list="fileImages"
-                  :disabled="disableUploadImage"
-                >
-                  <el-icon><Plus /></el-icon>
+                <el-icon><Plus /></el-icon>
 
-                  <template #file="{ file }">
-                    <div>
-                      <img
-                        class="el-upload-list__item-thumbnail"
-                        :src="file.url"
-                        alt=""
-                      />
-                      <span class="el-upload-list__item-actions">
-                        <span
-                          class="el-upload-list__item-preview"
-                          @click="handlePictureCardPreview(file)"
-                        >
-                          <el-icon><zoom-in /></el-icon>
-                        </span>
-                        <el-popconfirm
-                          width="280"
-                          confirm-button-text="Confirm"
-                          cancel-button-text="Cancel"
-                          :icon="WarningFilled"
-                          icon-color="#c45656"
-                          title="Are you sure you want to remove this image?"
-                          @confirm="handleRemove(file, true)"
-                          @cancel="handleRemove(file, false)"
-                        >
-                          <template #reference>
-                            <span class="el-upload-list__item-delete">
-                              <el-icon><Delete /></el-icon> </span
-                          ></template>
-                        </el-popconfirm>
+                <template #file="{ file }">
+                  <div>
+                    <img class="el-upload-list__item-thumbnail" :src="file.url" alt="" />
+                    <span class="el-upload-list__item-actions">
+                      <span
+                        class="el-upload-list__item-preview"
+                        @click="handlePictureCardPreview(file)"
+                      >
+                        <el-icon><zoom-in /></el-icon>
                       </span>
-                    </div>
-                  </template>
-                </el-upload>
-              </el-tooltip>
+                      <el-popconfirm
+                        width="280"
+                        confirm-button-text="Confirm"
+                        cancel-button-text="Cancel"
+                        :icon="WarningFilled"
+                        icon-color="#c45656"
+                        title="Are you sure you want to remove this image?"
+                        @confirm="handleRemove(file, true)"
+                        @cancel="handleRemove(file, false)"
+                      >
+                        <template #reference>
+                          <span class="el-upload-list__item-delete">
+                            <el-icon><Delete /></el-icon> </span
+                        ></template>
+                      </el-popconfirm>
+                    </span>
+                  </div>
+                </template>
+              </el-upload>
+              <!-- </el-tooltip> -->
             </div>
           </div>
           <br />
           <div class="flex justify-center items-center gap-3">
-            <el-button @click="openMessageBox('draft')" type="warning"
+            <a href="http://192.168.0.7:97/pullouttransactions" v-if="showCancel"
+              ><el-button type="warning">Cancel</el-button></a
+            >
+            <el-button @click="openMessageBox('draft')" type="warning" v-else
               >Save as Draft</el-button
             >
+
             <el-tooltip
               :content="tooltipSubmit"
               :disabled="!isDisabledSubmit"
@@ -557,6 +575,10 @@ export default {
       intervalID: null,
 
       inactiveUser: false,
+
+      showMaxImgMsg: false,
+
+      showCancel: false,
     };
   },
   created() {
@@ -692,21 +714,29 @@ export default {
         else this.isEditBLDisabled = false;
       } else this.isShowButton = false;
     },
-    fetchCompany() {
-      axios
-        .get("/fetchCompanyByUser", {
-          params: {
-            userID: this.$page.props.auth.user.id,
-          },
-        })
-        .then((response) => {
-          this.listCompanyName = response.data;
-        })
-        .catch((error) => {
-          console.error(error);
-        });
+    async fetchCompany() {
+      const companyUser = await axios.get("/fetchCompanyByUser", {
+        params: {
+          userID: this.$page.props.auth.user.id,
+        },
+      });
+
+      this.listCompanyName = companyUser.data;
+
+      // axios
+      //   .get("/fetchCompanyByUser", {
+      //     params: {
+      //       userID: this.$page.props.auth.user.id,
+      //     },
+      //   })
+      //   .then((response) => {
+      //     this.listCompanyName = response.data;
+      //   })
+      //   .catch((error) => {
+      //     console.error(error);
+      //   });
     },
-    fetchChainCode() {
+    async fetchChainCode() {
       if (
         this.newTransaction.companyName == "NBFI" ||
         this.newTransaction.companyName == "CMC" ||
@@ -715,77 +745,112 @@ export default {
         this.isNBFI = true;
       else this.isNBFI = false;
 
-      axios
-        .get("/fetchChainByUser", {
-          params: {
-            company: this.newTransaction.companyName,
-            userID: this.$page.props.auth.user.id,
-          },
-        })
-        .then((response) => {
-          this.listChainCode = response.data;
-        })
-        .catch((error) => {
-          console.error(error);
-        });
+      const chainUser = await axios.get("/fetchChainByUser", {
+        params: {
+          company: this.newTransaction.companyName,
+          userID: this.$page.props.auth.user.id,
+        },
+      });
+
+      this.listChainCode = chainUser.data;
+
+      // axios
+      //   .get("/fetchChainByUser", {
+      //     params: {
+      //       company: this.newTransaction.companyName,
+      //       userID: this.$page.props.auth.user.id,
+      //     },
+      //   })
+      //   .then((response) => {
+      //     this.listChainCode = response.data;
+      //   })
+      //   .catch((error) => {
+      //     console.error(error);
+      //   });
 
       this.isChainCode = false;
     },
-    fetchChainName() {
-      axios
-        .get("/fetchChainNameByUser", {
-          params: {
-            chainCode: this.newTransaction.chainCode,
-            userID: this.$page.props.auth.user.id,
-          },
-        })
-        .then((response) => {
-          this.listBranchName = response.data;
-        })
-        .catch((error) => {
-          console.error(error);
-        });
+    async fetchChainName() {
+      const chainNameUser = await axios.get("/fetchChainNameByUser", {
+        params: {
+          chainCode: this.newTransaction.chainCode,
+          userID: this.$page.props.auth.user.id,
+        },
+      });
+
+      this.listBranchName = chainNameUser.data;
+      // axios
+      //   .get("/fetchChainNameByUser", {
+      //     params: {
+      //       chainCode: this.newTransaction.chainCode,
+      //       userID: this.$page.props.auth.user.id,
+      //     },
+      //   })
+      //   .then((response) => {
+      //     this.listBranchName = response.data;
+      //   })
+      //   .catch((error) => {
+      //     console.error(error);
+      //   });
 
       this.isBranchName = false;
     },
-    fetchItems(itemInput) {
+    async fetchItems(itemInput) {
+      console.log("Items Input:", itemInput);
       if (itemInput.length >= 4) {
         if (
           this.newTransaction.companyName == "NBFI" ||
           this.newTransaction.companyName == "CMC" ||
           this.newTransaction.companyName == "ASC"
         ) {
-          axios
-            .get("/fetchItemsNBFI", {
-              params: {
-                ItemNo: itemInput,
-                barcode: this.itemDigitsBarcode,
-              },
-            }) // Make a GET request to the specified URL
-            .then((response) => {
-              this.itemCodeList = response.data; // Update the 'data' variable with the retrieved data
-            })
-            .catch((error) => {
-              // console.error(error.reponse); // Handle any errors that may occur
-            });
+          const items = await axios.get("/fetchItemsNBFI", {
+            ItemNo: itemInput,
+            barcode: this.itemDigitsBarcode,
+          });
+
+          this.itemCodeList = items.data;
+          console.log("Items:", items.data);
+          // axios
+          //   .get("/fetchItemsNBFI", {
+          //     params: {
+          //       ItemNo: itemInput,
+          //       barcode: this.itemDigitsBarcode,
+          //     },
+          //   }) // Make a GET request to the specified URL
+          //   .then((response) => {
+          //     this.itemCodeList = response.data; // Update the 'data' variable with the retrieved data
+          //   })
+          //   .catch((error) => {
+          //     console.error(error.reponse); // Handle any errors that may occur
+          //   });
         } else {
-          axios
-            .get("/fetchItems", {
-              params: {
-                ItemNo: itemInput,
-                barcode: this.itemDigitsBarcode,
-              },
-            })
-            .then((response) => {
-              this.itemCodeList = response.data; // Update the 'data' variable with the retrieved data
-            })
-            .catch((error) => {
-              // console.error(error.reponse); // Handle any errors that may occur
-            });
+          const items = await axios.get("/fetchItems", {
+            params: {
+              ItemNo: itemInput,
+              barcode: this.itemDigitsBarcode,
+            },
+          });
+
+          this.itemCodeList = items.data;
+          console.log("Items:", items);
+
+          // axios
+          //   .get("/fetchItems", {
+          //     params: {
+          //       ItemNo: itemInput,
+          //       barcode: this.itemDigitsBarcode,
+          //     },
+          //   })
+          //   .then((response) => {
+          //     this.itemCodeList = response.data; // Update the 'data' variable with the retrieved data
+          //   })
+          //   .catch((error) => {
+          //     // console.error(error.reponse); // Handle any errors that may occur
+          //   });
         }
       } else if (itemInput.length == 0) this.itemCodeList = [];
     },
-    fetchEdit() {
+    async fetchEdit() {
       try {
         const uri = window.location.href;
         var transactionID = uri.split("?")[1];
@@ -793,155 +858,284 @@ export default {
         // var company = transactionID.split("=")[2];
         var company = this.decodeFromAlphanumeric(transactionID.split("=")[2]);
         this.isDraft = true;
-        axios
-          .get("/fetchEditDraftBranch", {
-            params: {
-              company: company,
-              plID: id,
-            },
-          })
-          .then((response) => {
-            this.newTransaction.companyName = response.data[0].company;
-            this.newTransaction.branchName = response.data[0].branchName;
-            this.newTransaction.chainCode = response.data[0].chainCode;
-            this.newTransaction.transactionType = response.data[0].transactionType;
 
-            if (
-              response.data[0].status == "denied" ||
-              response.data[0].status == "endorsement" ||
-              response.data[0].status == "unprocessed"
-            ) {
-              this.isDenied = false;
-              this.isCancel = true;
-            }
+        const branchData = await axios.get("/fetchEditDraftBranch", {
+          params: {
+            company: company,
+            plID: id,
+          },
+        });
 
-            if (response.data[0].status == "endorsement") {
-              this.isApproved = true;
-              this.isSubmit = false;
-            }
+        this.newTransaction.companyName = branchData.data[0].company;
+        this.newTransaction.branchName = branchData.data[0].branchName;
+        this.newTransaction.chainCode = branchData.data[0].chainCode;
+        this.newTransaction.transactionType = branchData.data[0].transactionType;
 
-            axios
-              .get("/fetchEditDraftItem", {
-                params: {
-                  company: company,
-                  plID: id,
-                },
-              })
-              .then((response) => {
-                for (var x = 0; x < response.data.length; x++) {
-                  this.newTransaction.items.push(response.data[x]);
-                }
+        if (
+          branchData.data[0].status == "denied" ||
+          branchData.data[0].status == "endorsement" ||
+          branchData.data[0].status == "unprocessed"
+        ) {
+          this.isDenied = false;
+          this.showCancel = true;
+        }
 
-                const filteredData = this.newTransaction.items.filter(
-                  (obj, index, self) => {
-                    const boxLabel = obj.boxLabel;
-                    return self.findIndex((o) => o.boxLabel === boxLabel) === index;
-                  }
-                );
+        if (branchData.data[0].status == "endorsement") {
+          this.isApproved = true;
+          this.isSubmit = false;
+        }
 
-                const boxData = filteredData.map((obj) => {
-                  return {
-                    boxLabel: obj.boxLabel,
-                    boxNumber: obj.boxNumber,
-                  };
-                });
+        const itemData = await axios.get("/fetchEditDraftItem", {
+          params: {
+            company: company,
+            plID: id,
+          },
+        });
 
-                for (var x = 0; x < boxData.length; x++) {
-                  this.newTransaction.boxLabels.push({
-                    id: boxData[x].boxNumber,
-                    boxNumber: boxData[x].boxNumber,
-                    boxLabel: boxData[x].boxLabel,
-                  });
-                  this.newItemInputBox.push({
-                    id: boxData[x].boxNumber,
-                  });
-                }
+        for (var x = 0; x < itemData.data.length; x++) {
+          this.newTransaction.items.push(itemData.data[x]);
+        }
 
-                this.isDraft = false;
-                if (this.newTransaction.companyName) {
-                  this.isCompany = false;
-                  this.isChainCode = false;
-                  this.fetchCompany();
-                  this.fetchChainCode();
-                }
+        const filteredData = this.newTransaction.items.filter((obj, index, self) => {
+          const boxLabel = obj.boxLabel;
+          return self.findIndex((o) => o.boxLabel === boxLabel) === index;
+        });
 
-                if (this.newTransaction.chainCode) {
-                  this.isChainCode = false;
-                  this.isBranchName = false;
-                  this.fetchChainName();
-                  this.fetchChainCode();
-                }
+        const boxData = filteredData.map((obj) => {
+          return {
+            boxLabel: obj.boxLabel,
+            boxNumber: obj.boxNumber,
+          };
+        });
 
-                if (this.newTransaction.branchName) {
-                  this.isBranchName = false;
-                  this.isTransactionType = false;
-                  this.fetchChainName();
-                }
-
-                if (this.newTransaction.transactionType) {
-                  this.isCompany = false;
-                  this.isChainCode = false;
-                  this.isBranchName = false;
-                  this.isTransactionType = false;
-                  // this.isShowButton = true;
-                }
-
-                if (this.newTransaction.items.length) {
-                  this.isCompany = true;
-                  this.isChainCode = true;
-                  this.isBranchName = true;
-                  this.isTransactionType = true;
-                  // this.isShowButton = true;
-                }
-              })
-              .catch((error) => {
-                // console.error(error);
-              });
-            axios
-              .get("/fetchImageBranchDoc", {
-                params: {
-                  company: company,
-                  transactionID: id,
-                },
-              })
-              .then((response) => {
-                response.data.imagePaths.forEach((path) => {
-                  let name = path.split("/");
-                  name = name[name.length - 1];
-                  // console.log("path: ", name, path);
-                  this.fileImages.push({
-                    name: name,
-                    url: path,
-                  });
-                  this.fileImagesTemp.push(name);
-                });
-              })
-              .catch((error) => {
-                console.error(error);
-              });
-          })
-          .catch((error) => {
-            // console.error(error);
+        for (var x = 0; x < boxData.length; x++) {
+          this.newTransaction.boxLabels.push({
+            id: boxData[x].boxNumber,
+            boxNumber: boxData[x].boxNumber,
+            boxLabel: boxData[x].boxLabel,
           });
+          this.newItemInputBox.push({
+            id: boxData[x].boxNumber,
+          });
+        }
+
+        this.isDraft = false;
+        if (this.newTransaction.companyName) {
+          this.isCompany = false;
+          this.isChainCode = false;
+          this.fetchCompany();
+          this.fetchChainCode();
+        }
+
+        if (this.newTransaction.chainCode) {
+          this.isChainCode = false;
+          this.isBranchName = false;
+          this.fetchChainName();
+          this.fetchChainCode();
+        }
+
+        if (this.newTransaction.branchName) {
+          this.isBranchName = false;
+          this.isTransactionType = false;
+          this.fetchChainName();
+        }
+
+        if (this.newTransaction.transactionType) {
+          this.isCompany = false;
+          this.isChainCode = false;
+          this.isBranchName = false;
+          this.isTransactionType = false;
+          // this.isShowButton = true;
+        }
+
+        if (this.newTransaction.items.length) {
+          this.isCompany = true;
+          this.isChainCode = true;
+          this.isBranchName = true;
+          this.isTransactionType = true;
+          // this.isShowButton = true;
+        }
+
+        const imageBranchDoc = await axios.get("/fetchImageBranchDoc", {
+          params: {
+            company: company,
+            transactionID: id,
+          },
+        });
+
+        imageBranchDoc.data.imagePaths.forEach((path) => {
+          let name = path.split("/");
+          name = name[name.length - 1];
+          // console.log("path: ", name, path);
+          this.fileImages.push({
+            name: name,
+            url: path,
+          });
+          this.fileImagesTemp.push(name);
+        });
+
+        // axios
+        //   .get("/fetchEditDraftBranch", {
+        //     params: {
+        //       company: company,
+        //       plID: id,
+        //     },
+        //   })
+        //   .then((response) => {
+        //     this.newTransaction.companyName = response.data[0].company;
+        //     this.newTransaction.branchName = response.data[0].branchName;
+        //     this.newTransaction.chainCode = response.data[0].chainCode;
+        //     this.newTransaction.transactionType = response.data[0].transactionType;
+
+        //     if (
+        //       response.data[0].status == "denied" ||
+        //       response.data[0].status == "endorsement" ||
+        //       response.data[0].status == "unprocessed"
+        //     ) {
+        //       this.isDenied = false;
+        //       this.showCancel = true;
+        //     }
+
+        //     if (response.data[0].status == "endorsement") {
+        //       this.isApproved = true;
+        //       this.isSubmit = false;
+        //     }
+
+        //     axios
+        //       .get("/fetchEditDraftItem", {
+        //         params: {
+        //           company: company,
+        //           plID: id,
+        //         },
+        //       })
+        //       .then((response) => {
+        //         for (var x = 0; x < response.data.length; x++) {
+        //           this.newTransaction.items.push(response.data[x]);
+        //         }
+
+        //         const filteredData = this.newTransaction.items.filter(
+        //           (obj, index, self) => {
+        //             const boxLabel = obj.boxLabel;
+        //             return self.findIndex((o) => o.boxLabel === boxLabel) === index;
+        //           }
+        //         );
+
+        //         const boxData = filteredData.map((obj) => {
+        //           return {
+        //             boxLabel: obj.boxLabel,
+        //             boxNumber: obj.boxNumber,
+        //           };
+        //         });
+
+        //         for (var x = 0; x < boxData.length; x++) {
+        //           this.newTransaction.boxLabels.push({
+        //             id: boxData[x].boxNumber,
+        //             boxNumber: boxData[x].boxNumber,
+        //             boxLabel: boxData[x].boxLabel,
+        //           });
+        //           this.newItemInputBox.push({
+        //             id: boxData[x].boxNumber,
+        //           });
+        //         }
+
+        //         this.isDraft = false;
+        //         if (this.newTransaction.companyName) {
+        //           this.isCompany = false;
+        //           this.isChainCode = false;
+        //           this.fetchCompany();
+        //           this.fetchChainCode();
+        //         }
+
+        //         if (this.newTransaction.chainCode) {
+        //           this.isChainCode = false;
+        //           this.isBranchName = false;
+        //           this.fetchChainName();
+        //           this.fetchChainCode();
+        //         }
+
+        //         if (this.newTransaction.branchName) {
+        //           this.isBranchName = false;
+        //           this.isTransactionType = false;
+        //           this.fetchChainName();
+        //         }
+
+        //         if (this.newTransaction.transactionType) {
+        //           this.isCompany = false;
+        //           this.isChainCode = false;
+        //           this.isBranchName = false;
+        //           this.isTransactionType = false;
+        //           // this.isShowButton = true;
+        //         }
+
+        //         if (this.newTransaction.items.length) {
+        //           this.isCompany = true;
+        //           this.isChainCode = true;
+        //           this.isBranchName = true;
+        //           this.isTransactionType = true;
+        //           // this.isShowButton = true;
+        //         }
+        //       })
+        //       .catch((error) => {
+        //         // console.error(error);
+        //       });
+        //     axios
+        //       .get("/fetchImageBranchDoc", {
+        //         params: {
+        //           company: company,
+        //           transactionID: id,
+        //         },
+        //       })
+        //       .then((response) => {
+        //         response.data.imagePaths.forEach((path) => {
+        //           let name = path.split("/");
+        //           name = name[name.length - 1];
+        //           // console.log("path: ", name, path);
+        //           this.fileImages.push({
+        //             name: name,
+        //             url: path,
+        //           });
+        //           this.fileImagesTemp.push(name);
+        //         });
+        //       })
+        //       .catch((error) => {
+        //         console.error(error);
+        //       });
+        //   })
+        //   .catch((error) => {
+        //     // console.error(error);
+        //   });
       } catch {
         //Fetching Promo Info
-        axios
-          .get("/fetchPromoBranchInfo", {
-            params: {
-              userID: this.$page.props.auth.user.id,
-            },
-          })
-          .then((response) => {
-            this.newTransaction.companyName = response.data[0].company;
-            this.newTransaction.chainCode = response.data[0].chainCode;
-            this.newTransaction.branchName = response.data[0].branchName;
-            if (this.newTransaction.branchName) this.isTransactionType = false;
-            this.fetchChainCode();
-            this.fetchChainName();
-          })
-          .catch((error) => {
-            // console.error(error);
-          });
+        const promoBranchInfo = await axios.get("/fetchPromoBranchInfo", {
+          params: {
+            userID: this.$page.props.auth.user.id,
+          },
+        });
+
+        this.newTransaction.companyName = promoBranchInfo.data[0].company;
+        this.newTransaction.chainCode = promoBranchInfo.data[0].chainCode;
+        this.newTransaction.branchName = promoBranchInfo.data[0].branchName;
+        if (this.newTransaction.branchName) this.isTransactionType = false;
+        this.fetchChainCode();
+        this.fetchChainName();
+
+        // axios
+        //   .get("/fetchPromoBranchInfo", {
+        //     params: {
+        //       userID: this.$page.props.auth.user.id,
+        //     },
+        //   })
+        //   .then((response) => {
+        //     this.newTransaction.companyName = response.data[0].company;
+        //     this.newTransaction.chainCode = response.data[0].chainCode;
+        //     this.newTransaction.branchName = response.data[0].branchName;
+        //     if (this.newTransaction.branchName) this.isTransactionType = false;
+        //     this.fetchChainCode();
+        //     this.fetchChainName();
+        //   })
+        //   .catch((error) => {
+        //     // console.error(error);
+        //   });
       }
     },
     compareItemCode() {
@@ -968,6 +1162,8 @@ export default {
           boxNumber: this.newTransaction.boxLabels.length + 1,
           boxLabel: this.newBoxLabel,
         };
+
+        // console.log("First Label", this.newBoxLabel);
       } else {
         tempBoxLabel = {
           id:
@@ -977,6 +1173,7 @@ export default {
           boxNumber: this.newTransaction.boxLabels.length + 1,
           boxLabel: this.newBoxLabel,
         };
+        console.log("Add new Label");
       }
 
       let tempItem = [];
@@ -1016,7 +1213,7 @@ export default {
       this.isAddItem = false;
       this.showItemInput = boxNUMBER;
     },
-    saveItem(boxNUMBER) {
+    async saveItem(boxNUMBER) {
       if (this.itemDigitsBarcode == "16 Digits") {
         if (this.newItemInput.length > 16)
           this.newItemInput = this.newItemInput.slice(0, 16);
@@ -1024,129 +1221,208 @@ export default {
         this.newItemInput = this.newItemInput.slice(0, 12);
       }
       if (this.itemDigitsBarcode == "12 Digits") {
-        axios
-          .get("/fetchItemsBarcode", {
-            params: {
-              ItemNo: this.newItemInput,
-              company: this.newTransaction.companyName,
-            },
-          })
-          .then((response) => {
-            console.log("Item Barcode Data", response.data);
-            this.newItemInput = response.data[0].ItemNo;
-          })
-          .catch((error) => {
-            console.error(error);
-          });
+        this.newItemInput = await axios.get("/fetchItemsBarcode", {
+          params: {
+            ItemNo: this.newItemInput,
+            company: this.newTransaction.companyName,
+          },
+        });
       }
       var checkItemData = true;
-      setTimeout(() => {
-        axios
-          .get("/compareItemCode", {
-            params: {
-              companyType: this.newTransaction.companyName,
-              ItemNo: this.newItemInput,
-            },
-          })
-          .then((response) => {
-            if (response.data.length == 0) checkItemData = false;
+      var compareItemCode;
+      try {
+        compareItemCode = await axios.get("/compareItemCode", {
+          params: {
+            companyType: this.newTransaction.companyName,
+            ItemNo: this.newItemInput,
+          },
+        });
+      } catch {
+        !this.newItemInput ? true : (this.isRightCode = true);
+      }
 
-            this.newItemCode = response.data[0].ItemNo;
-            this.newItemDescription = response.data[0].ItemDescription;
-            this.newStyleCode = response.data[0].StyleCode;
+      this.newItemCode = compareItemCode.data[0].ItemNo;
+      this.newItemDescription = compareItemCode.data[0].ItemDescription;
+      this.newStyleCode = compareItemCode.data[0].StyleCode;
 
-            let brandCode = response.data[0].ItemNo.toString().substr(1, 2);
-            axios
-              .get("/fetchBrands", {
-                params: {
-                  companyType: this.newTransaction.companyName,
-                  brandCode: brandCode,
-                },
-              })
-              .then((response) => {
-                this.newBrand = response.data[0].brandNames;
-              })
-              .catch((error) => {
-                console.error(error);
-              });
-          })
-          .catch((error) => {
-            !this.newItemInput ? true : (this.isRightCode = true);
-          });
-      }, 300);
-      var newResponseData;
+      let brandCode = compareItemCode.data[0].ItemNo.toString().substr(1, 2);
 
-      setTimeout(() => {
-        if (checkItemData) {
-          this.isNewItem = !this.newItemInput ? true : false;
+      const newBrand = await axios.get("/fetchBrands", {
+        params: {
+          companyType: this.newTransaction.companyName,
+          brandCode: brandCode,
+        },
+      });
 
-          if (this.isNewItem) {
-            this.isRightCode = false;
-            return 0;
-          }
-          axios
-            .get("/fetchSameItem", {
-              params: {
-                company: this.newTransaction.companyName,
-                ItemCode: this.newItemCode,
-                ItemDescription: this.newItemDescription,
-                StyleCode: this.newStyleCode,
-              },
-            })
-            .then((response) => {
-              newResponseData = response.data;
-            })
-            .catch((error) => {
-              //console.error(error);
-            });
+      this.newBrand = newBrand.data.brandNames;
+
+      if (checkItemData) {
+        this.isNewItem = !this.newItemInput ? true : false;
+
+        if (this.isNewItem) {
+          this.isRightCode = false;
+          return 0;
         }
-      }, 500);
-
-      setTimeout(() => {
-        if (checkItemData) {
-          for (var x = 0; x < newResponseData.length; x++) {
-            var flag = true;
-            for (var i = 0; i < this.newTransaction.items.length; i++) {
-              if (
-                this.newTransaction.items[i].code == newResponseData[x].ItemNo &&
-                this.newTransaction.items[i].boxNumber == boxNUMBER
-              ) {
-                // this.newTransaction.items[i].quantity += 1;
-                flag = false;
-                break;
-              }
+        var newResponseData = await axios.get("/fetchSameItem", {
+          params: {
+            company: this.newTransaction.companyName,
+            ItemCode: this.newItemCode,
+            ItemDescription: this.newItemDescription,
+            StyleCode: this.newStyleCode,
+          },
+        });
+      }
+      if (checkItemData) {
+        for (var x = 0; x < newResponseData.data.length; x++) {
+          var flag = true;
+          for (var i = 0; i < this.newTransaction.items.length; i++) {
+            if (
+              this.newTransaction.items[i].code == newResponseData.data[x].ItemNo &&
+              this.newTransaction.items[i].boxNumber == boxNUMBER
+            ) {
+              // this.newTransaction.items[i].quantity += 1;
+              flag = false;
+              break;
             }
-            if (flag) {
-              if (
-                this.newTransaction.companyName == "NBFI" ||
-                this.newTransaction.companyName == "CMC" ||
-                this.newTransaction.companyName == "ASC"
-              ) {
-                var categorybrand = this.newBrand;
-              } else {
-                var categorybrand = newResponseData[x].Category;
-              }
-              let tempItem = {
-                code: newResponseData[x].ItemNo,
-                description: newResponseData[x].ItemDescription,
-                categorybrand: categorybrand,
-                quantity: 0,
-                size: newResponseData[x].Size,
-                color: newResponseData[x].Color,
-                // boxLabel: label,
-                boxNumber: boxNUMBER,
-                category: newResponseData[x].Category,
-              };
-              this.newTransaction.items.push(tempItem);
-            }
-            this.isRightCode = false;
-            this.isItem = false;
-            this.isAddItem = true;
-            this.newItemInput = "";
-            this.showItemInput = "";
           }
+          if (flag) {
+            if (
+              this.newTransaction.companyName == "NBFI" ||
+              this.newTransaction.companyName == "CMC" ||
+              this.newTransaction.companyName == "ASC"
+            ) {
+              var categorybrand = this.newBrand;
+            } else {
+              var categorybrand = newResponseData.data[x].Category;
+            }
+            let tempItem = {
+              code: newResponseData.data[x].ItemNo,
+              description: newResponseData.data[x].ItemDescription,
+              categorybrand: categorybrand,
+              quantity: 0,
+              size: newResponseData.data[x].Size,
+              color: newResponseData.data[x].Color,
+              // boxLabel: label,
+              boxNumber: boxNUMBER,
+              category: newResponseData.data[x].Category,
+            };
+            this.newTransaction.items.push(tempItem);
+            // console.log("New Item:", this.newTransaction.items);
+          }
+          this.isRightCode = false;
+          this.isItem = false;
+          this.isAddItem = true;
+          this.newItemInput = "";
+          this.showItemInput = "";
         }
-      }, 1000);
+      }
+      // setTimeout(() => {
+      //   axios
+      //     .get("/compareItemCode", {
+      //       params: {
+      //         companyType: this.newTransaction.companyName,
+      //         ItemNo: this.newItemInput,
+      //       },
+      //     })
+      //     .then((response) => {
+      //       if (response.data.length == 0) checkItemData = false;
+
+      //       this.newItemCode = response.data[0].ItemNo;
+      //       this.newItemDescription = response.data[0].ItemDescription;
+      //       this.newStyleCode = response.data[0].StyleCode;
+
+      //       let brandCode = response.data[0].ItemNo.toString().substr(1, 2);
+      //       axios
+      //         .get("/fetchBrands", {
+      //           params: {
+      //             companyType: this.newTransaction.companyName,
+      //             brandCode: brandCode,
+      //           },
+      //         })
+      //         .then((response) => {
+      //           this.newBrand = response.data[0].brandNames;
+      //         })
+      //         .catch((error) => {
+      //           console.error(error);
+      //         });
+      //     })
+      //     .catch((error) => {
+      //       !this.newItemInput ? true : (this.isRightCode = true);
+      //     });
+      // }, 300);
+
+      // setTimeout(() => {
+      //   if (checkItemData) {
+      //     this.isNewItem = !this.newItemInput ? true : false;
+
+      //     if (this.isNewItem) {
+      //       this.isRightCode = false;
+      //       return 0;
+      //     }
+      //     axios
+      //       .get("/fetchSameItem", {
+      //         params: {
+      //           company: this.newTransaction.companyName,
+      //           ItemCode: this.newItemCode,
+      //           ItemDescription: this.newItemDescription,
+      //           StyleCode: this.newStyleCode,
+      //         },
+      //       })
+      //       .then((response) => {
+      //         newResponseData = response.data;
+      //       })
+      //       .catch((error) => {
+      //         //console.error(error);
+      //       });
+      //   }
+      // }, 500);
+
+      // setTimeout(() => {
+      //   if (checkItemData) {
+      //     for (var x = 0; x < newResponseData.length; x++) {
+      //       var flag = true;
+      //       for (var i = 0; i < this.newTransaction.items.length; i++) {
+      //         if (
+      //           this.newTransaction.items[i].code == newResponseData[x].ItemNo &&
+      //           this.newTransaction.items[i].boxNumber == boxNUMBER
+      //         ) {
+      //           // this.newTransaction.items[i].quantity += 1;
+      //           flag = false;
+      //           break;
+      //         }
+      //       }
+      //       if (flag) {
+      //         if (
+      //           this.newTransaction.companyName == "NBFI" ||
+      //           this.newTransaction.companyName == "CMC" ||
+      //           this.newTransaction.companyName == "ASC"
+      //         ) {
+      //           var categorybrand = this.newBrand;
+      //         } else {
+      //           var categorybrand = newResponseData[x].Category;
+      //         }
+      //         let tempItem = {
+      //           code: newResponseData[x].ItemNo,
+      //           description: newResponseData[x].ItemDescription,
+      //           categorybrand: categorybrand,
+      //           quantity: 0,
+      //           size: newResponseData[x].Size,
+      //           color: newResponseData[x].Color,
+      //           // boxLabel: label,
+      //           boxNumber: boxNUMBER,
+      //           category: newResponseData[x].Category,
+      //         };
+      //         this.newTransaction.items.push(tempItem);
+      //         // console.log("New Item:", this.newTransaction.items);
+      //       }
+      //       this.isRightCode = false;
+      //       this.isItem = false;
+      //       this.isAddItem = true;
+      //       this.newItemInput = "";
+      //       this.showItemInput = "";
+      //     }
+      //   }
+      // }, 1000);
     },
     cancelItem() {
       this.isRightCode = false;
@@ -1160,12 +1436,77 @@ export default {
     createTableData() {
       this.tableData = [];
       this.multipleSelection = [];
+      // console.log("Items:", this.newTransaction.items);
+      // Create a map to store the aggregated quantities by a unique key
+      // var aggregatedItems = new Map();
+      // this.newTransaction.boxLabels.forEach((box, key) => {
+      //   this.tableData.push([]);
+      //   this.newTransaction.items.forEach((item) => {
+      //     var unique = `${item.code}-${item.boxNumber}`;
+      //     if (aggregatedItems.has(unique)) {
+      //       item.quantity = item.quantity == 0 ? 1 : item.quantity;
+      //       aggregatedItems.set(unique, item.quantity + aggregatedItems.get(unique));
+
+      //       console.log(
+      //         "Item:",
+      //         aggregatedItems.get(unique),
+      //         key,
+      //         item.code,
+      //         item.boxNumber
+      //       );
+      //     } else {
+      //       aggregatedItems.set(unique, item.quantity);
+      //       console.log(
+      //         "Item Else:",
+      //         aggregatedItems.get(unique),
+      //         key,
+      //         item.code,
+      //         item.boxNumber
+      //       );
+      //     }
+      //   });
+      // });
+      // console.log("Aggregated Items:", aggregatedItems);
+      // this.newTransaction.boxLabels.forEach((box, key) => {
+      //   this.tableData.push([]);
+      //   const boxItems = this.newTransaction.items.filter(
+      //     (item) => item.boxNumber === box.boxNumber
+      //   );
+      //   console.log("Box Items:", boxItems);
+      //   let groupedItems = {};
+
+      //   boxItems.forEach((item) => {
+      //     var key = item.itemCode + item.boxNumber;
+      //     console.log("KEy:", key);
+      //     if (!groupedItems[key]) {
+      //       groupedItems[key] = { ...item, quantity: 0 };
+      //     }
+      //     groupedItems[key].quantity += item.quantity;
+      //   });
+
+      //   console.log("Group Items:", groupedItems);
+
+      //   // Ensure the quantity is at least 1 for each item
+      //   Object.values(groupedItems).forEach((groupedItem) => {
+      //     groupedItem.quantity = Math.max(groupedItem.quantity, 1);
+      //     this.tableData[key].push(groupedItem);
+      //   });
+      // });
+      // this.tableData = [];
+      // this.multipleSelection = [];
       this.newTransaction.boxLabels.forEach((box, key) => {
         this.tableData.push([]);
         this.newTransaction.items.forEach((item) => {
-          if (box.boxNumber == item.boxNumber) this.tableData[key].push(item);
+          if (box.boxNumber == item.boxNumber) {
+            // console.log("Key:", key);
+            // console.log("Item:", item);
+
+            this.tableData[key].push(item);
+          }
         });
       });
+
+      // console.log("Items:", this.tableData);
     },
     handleSelectAll(val) {
       if (val.length == 0) {
@@ -1293,31 +1634,55 @@ export default {
         if (Object.keys(item).length != 8) this.tempItemsRemove.push(item.id);
       });
     },
-    handleRemove(uploadFile, confirm) {
+    async handleRemove(uploadFile, confirm) {
       if (confirm) {
-        if (Object.keys(this.fileImages[this.fileImages.length - 1]).length != 7)
-          axios
-            .post("/deleteImage", {
+        try {
+          if (Object.keys(this.fileImages[this.fileImages.length - 1]).length !== 7) {
+            const response = await axios.post("/deleteImage", {
               company: this.newTransaction.companyName,
               path: uploadFile.name,
-            })
-            .then((response) => {
-              console.log(response.data);
-            })
-            .catch((error) => {
-              console.error(error);
             });
 
-        this.fileImages = this.fileImages.filter(function (obj) {
-          return obj.uid !== uploadFile.uid;
-        });
+            console.log(response.data);
+          }
 
-        ElMessage({
-          type: "success",
-          message: "Image has been removed.",
-        });
+          this.fileImages = this.fileImages.filter((obj) => obj.uid !== uploadFile.uid);
+
+          ElMessage({
+            type: "success",
+            message: "Image has been removed.",
+          });
+        } catch (error) {
+          console.error(error);
+        }
       }
     },
+
+    // async handleRemove(uploadFile, confirm) {
+    //   if (confirm) {
+    //     if (Object.keys(this.fileImages[this.fileImages.length - 1]).length != 7)
+    //       await axios
+    //         .post("/deleteImage", {
+    //           company: this.newTransaction.companyName,
+    //           path: uploadFile.name,
+    //         })
+    //         .then((response) => {
+    //           console.log(response.data);
+    //         })
+    //         .catch((error) => {
+    //           console.error(error);
+    //         });
+
+    //     this.fileImages = this.fileImages.filter(function (obj) {
+    //       return obj.uid !== uploadFile.uid;
+    //     });
+
+    //     ElMessage({
+    //       type: "success",
+    //       message: "Image has been removed.",
+    //     });
+    //   }
+    // },
     // beforeRemove() {
     //   return ElMessageBox.confirm("Are you sure you want to remove this image?", {
     //     confirmButtonText: "Confirm",
@@ -1368,10 +1733,9 @@ export default {
       const maxSizeInBytes = 2 * 1024 * 1024; // 2MB
       this.disableUploadImage = false;
       this.disableUploadTooltip = true;
-      if (this.fileImages.length == 10) {
-        this.disableUploadImage = true;
-        this.disableUploadTooltip = false;
-      } else if (this.fileImages.length > 0) {
+
+      if (this.fileImages.length > 0) {
+        this.showMaxImgMsg = false;
         if (Object.keys(this.fileImages[this.fileImages.length - 1]).length == 7)
           if (
             !(
@@ -1393,6 +1757,11 @@ export default {
             ElMessage.error("Please select an image file smaller than 2MB.");
           }
       }
+      if (this.fileImages.length == 10) {
+        this.disableUploadImage = true;
+        this.disableUploadTooltip = false;
+        this.showMaxImgMsg = true;
+      }
     },
     addCategoryBoxLabel() {
       if (this.isDraft == false) {
@@ -1403,6 +1772,7 @@ export default {
           var uniqueCategory = [
             ...new Set(filteredItems.map((item) => item.categorybrand)),
           ];
+
           let strCategory = "";
           for (let i = 0; i < uniqueCategory.length; i++) {
             if (i == 0) strCategory = " [ " + uniqueCategory[i];
@@ -1415,6 +1785,46 @@ export default {
         });
       }
     },
+    editBoxLabel(code, quantity, boxNumber) {
+      console.log("Items", code, quantity, boxNumber);
+      this.validateSubmit();
+      //console.log(
+      //   "Item Code Edit:",
+      //   code,
+      //   " Quantity:",
+      //   quantity,
+      //   " Box Number",
+      //   boxNumber
+      // );
+      //console.log(" == : ", this.newTransaction.items);
+      var filteredItems = this.newTransaction.items.filter(
+        (item) => item.code === code && item.boxNumber === boxNumber
+      );
+
+      //console.log("Filtered Items: ", filteredItems);
+      var uniqueItems = [];
+      filteredItems.forEach((item) => {
+        var existingItem = uniqueItems.find(
+          (uniqueItem) => uniqueItem.code === item.code
+        );
+        if (existingItem) {
+          if (existingItem.quantity == 0 && item.quantity == 0) existingItem.quantity = 1;
+          else existingItem.quantity += item.quantity;
+        } else {
+          uniqueItems.push({ ...item });
+        }
+      });
+      // The uniqueItems array will contain unique items based on itemCode, with quantities added up.
+      //console.log("Unique Items: 1", uniqueItems);
+      //console.log("Unique Items: Code", uniqueItems[0].code);
+      //console.log("Unique Items: Box Number", uniqueItems[0].boxNumber);
+
+      this.newTransaction.items = this.newTransaction.items.filter(
+        (item) =>
+          item.code !== uniqueItems[0].code || item.boxNumber !== uniqueItems[0].boxNumber
+      );
+      this.newTransaction.items.push(uniqueItems[0]);
+    },
     enableDropDowns() {
       if (this.newTransaction.boxLabels.length == 0) {
         this.isCompany = false;
@@ -1424,140 +1834,88 @@ export default {
         this.isEditBLDisabled = true;
       } else this.isEditBLDisabled = false;
     },
-    submit() {
+    async submit() {
+      this.isValid.company = !this.newTransaction.companyName ? true : false;
+      this.isValid.chainCode = !this.newTransaction.chainCode ? true : false;
+      this.isValid.branchName = !this.newTransaction.branchName ? true : false;
+      this.isValid.transactionType = !this.newTransaction.transactionType ? true : false;
+      this.isValid.boxLabel = !this.newTransaction.boxLabels.length ? true : false;
+      this.isValid.item = !this.newTransaction.items.length ? true : false;
+
       try {
         const uri = window.location.href;
         var transactionID = uri.split("?")[1];
         var id = transactionID.split("=")[1].split("&")[0];
-
-        this.isValid.company = !this.newTransaction.companyName ? true : false;
-        this.isValid.chainCode = !this.newTransaction.chainCode ? true : false;
-        this.isValid.branchName = !this.newTransaction.branchName ? true : false;
-        this.isValid.transactionType = !this.newTransaction.transactionType
-          ? true
-          : false;
-        this.isValid.boxLabel = !this.newTransaction.boxLabels.length ? true : false;
-        this.isValid.item = !this.newTransaction.items.length ? true : false;
-
-        var status = "unprocessed";
-
-        axios
-          .post("/updatePullOutBranchRequest", {
-            id: id,
-            chainCode: this.newTransaction.chainCode,
-            companyType: this.newTransaction.companyName,
-            branchName: this.newTransaction.branchName,
-            transactionType: this.newTransaction.transactionType,
-            email: this.$page.props.auth.user.email,
-            status: status,
-          })
-          .then((response) => {
-            this.transferTransactionID = id;
-            this.openSubmitMessageBox();
-            this.$refs.uploadImage.submit();
-          })
-          .catch((error) => {
-            console.error(error);
-          });
-
-        // for (var x = 0; x < this.newTransaction.items.length; x++) {
-        //   let labelBox = "";
-        //   for (let box of this.newTransaction.boxLabels) {
-        //     if (box.id == this.newTransaction.items[x].boxNumber) {
-        //       labelBox = box.boxLabel;
-        //     }
-        //   }
-        // }
 
         this.newTransaction.items.forEach((item) => {
           if (Object.keys(item).length == 8) {
-            let labelBox = this.newTransaction.boxLabels.find(
-              (box) => box.id === item.boxNumber
-            );
-            item.boxLabel = labelBox.boxLabel;
             item.id = null;
           }
+          let labelBox = this.newTransaction.boxLabels.find(
+            (box) => box.id === item.boxNumber
+          );
+          item.boxLabel = labelBox.boxLabel;
         });
-        axios
-          .post("/updatePullOutItemRequest", {
-            plID: id,
-            companyType: this.newTransaction.companyName,
-            email: this.$page.props.auth.user.email,
-            status: status,
-            items: this.newTransaction.items,
-            removedItems: this.tempItemsRemove,
-          })
-          .then((response) => {
-            console.log("Items Request Saved:", response.data);
-          })
-          .catch((error) => {
-            console.error(error);
-          });
-      } catch {
-        this.isValid.company = !this.newTransaction.companyName ? true : false;
-        this.isValid.chainCode = !this.newTransaction.chainCode ? true : false;
-        this.isValid.branchName = !this.newTransaction.branchName ? true : false;
-        this.isValid.transactionType = !this.newTransaction.transactionType
-          ? true
-          : false;
-        this.isValid.boxLabel = !this.newTransaction.boxLabels.length ? true : false;
-        this.isValid.item = !this.newTransaction.items.length ? true : false;
 
-        axios
-          .post("/savePullOutBranchRequest", {
+        try {
+          var response = await axios.post("/updatePullOutBranchRequest", {
+            id: id,
             chainCode: this.newTransaction.chainCode,
             companyType: this.newTransaction.companyName,
             branchName: this.newTransaction.branchName,
             transactionType: this.newTransaction.transactionType,
+            status: "unprocessed",
+            email: this.$page.props.auth.user.email,
+            items: this.newTransaction.items,
+            removedItems: this.tempItemsRemove,
+          });
+
+          console.log("Success Response:", response.data);
+          this.transferTransactionID = id;
+          this.$refs.uploadImage.submit();
+          this.openSubmitMessageBox();
+        } catch (error) {
+          console.error(error);
+        }
+      } catch {
+        try {
+          var response = await axios.post("/savePullOutBranchRequest", {
+            chainCode: this.newTransaction.chainCode,
+            companyType: this.newTransaction.companyName,
+            branchName: this.newTransaction.branchName,
+            transactionType: this.newTransaction.transactionType,
+            boxes: this.newTransaction.boxLabels,
+            items: this.newTransaction.items,
             email: this.$page.props.auth.user.email,
             status: "unprocessed",
-          })
-          .then((response) => {
-            this.transferTransactionID = response.data.id;
-
-            for (var x = 0; x < this.newTransaction.items.length; x++) {
-              let labelBox = "";
-              for (let box of this.newTransaction.boxLabels) {
-                if (box.id == this.newTransaction.items[x].boxNumber) {
-                  labelBox = box.boxLabel;
-                }
-              }
-              axios
-                .post("/savePullOutItemRequest", {
-                  plID: response.data.id,
-                  companyType: this.newTransaction.companyName,
-                  brand: this.newTransaction.items[x].categorybrand,
-                  boxNumber: this.newTransaction.items[x].boxNumber,
-                  boxLabel: labelBox,
-                  itemCode: this.newTransaction.items[x].code,
-                  quantity: this.newTransaction.items[x].quantity,
-                  email: this.$page.props.auth.user.email,
-                  status: "unprocessed",
-                })
-                .then((response) => {
-                  //console.log("Success Items Save: ", response.data);
-                })
-                .catch((error) => {
-                  //console.error(error);
-                });
-            }
-            this.$refs.uploadImage.submit();
-            this.openSubmitMessageBox();
-            // setTimeout(this.$refs.uploadImage.submit(), 1100);
-          })
-          .catch((error) => {
-            //console.error(error);
           });
+          this.transferTransactionID = response.data;
+
+          this.$refs.uploadImage.submit();
+          this.openSubmitMessageBox();
+        } catch (error) {
+          console.error(error);
+        }
       }
     },
-    draft() {
+    async draft() {
       try {
         const uri = window.location.href;
         var transactionID = uri.split("?")[1];
         var id = transactionID.split("=")[1].split("&")[0];
 
-        axios
-          .post("/updatePullOutBranchRequest", {
+        this.newTransaction.items.forEach((item) => {
+          if (Object.keys(item).length == 8) {
+            item.id = null;
+          }
+          let labelBox = this.newTransaction.boxLabels.find(
+            (box) => box.id === item.boxNumber
+          );
+          item.boxLabel = labelBox.boxLabel;
+        });
+
+        try {
+          var response = await axios.post("/updatePullOutBranchRequest", {
             id: id,
             chainCode: this.newTransaction.chainCode,
             companyType: this.newTransaction.companyName,
@@ -1565,94 +1923,36 @@ export default {
             transactionType: this.newTransaction.transactionType,
             status: "draft",
             email: this.$page.props.auth.user.email,
-          })
-          .then((response) => {
-            this.transferTransactionID = id;
-
-            // for (var x = 0; x < this.newTransaction.items.length; x++) {
-            //   let labelBox = "";
-            //   for (let box of this.newTransaction.boxLabels) {
-            //     if (box.id == this.newTransaction.items[x].boxNumber) {
-            //       labelBox = box.boxLabel;
-            //     }
-            //   }
-            // }
-            this.newTransaction.items.forEach((item) => {
-              if (Object.keys(item).length == 8) {
-                item.id = null;
-              }
-              let labelBox = this.newTransaction.boxLabels.find(
-                (box) => box.id === item.boxNumber
-              );
-              item.boxLabel = labelBox.boxLabel;
-            });
-            // console.log("Draft Items: ", this.newTransaction.items);
-
-            axios
-              .post("/updatePullOutItemRequest", {
-                plID: id,
-                companyType: this.newTransaction.companyName,
-                status: "draft",
-                email: this.$page.props.auth.user.email,
-                items: this.newTransaction.items,
-                removedItems: this.tempItemsRemove,
-              })
-              .then((response) => {
-                console.log("Success Items Save: ", response.data);
-              })
-              .catch((error) => {
-                console.error(error);
-              });
-
-            this.$refs.uploadImage.submit();
-            this.openDraftMessageBox();
-          })
-          .catch((error) => {
-            //console.error(error);
+            items: this.newTransaction.items,
+            removedItems: this.tempItemsRemove,
           });
+
+          console.log("Success Response:", response.data);
+          this.transferTransactionID = id;
+          this.$refs.uploadImage.submit();
+          this.openDraftMessageBox();
+        } catch (error) {
+          console.error(error);
+        }
       } catch {
-        axios
-          .post("/savePullOutBranchRequest", {
+        try {
+          var response = await axios.post("/savePullOutBranchRequest", {
             chainCode: this.newTransaction.chainCode,
             companyType: this.newTransaction.companyName,
             branchName: this.newTransaction.branchName,
             transactionType: this.newTransaction.transactionType,
-            status: "draft",
+            boxes: this.newTransaction.boxLabels,
+            items: this.newTransaction.items,
             email: this.$page.props.auth.user.email,
-          })
-          .then((response) => {
-            this.transferTransactionID = response.data.id;
-
-            for (var x = 0; x < this.newTransaction.items.length; x++) {
-              let labelBox = "";
-              for (let box of this.newTransaction.boxLabels) {
-                if (box.id == this.newTransaction.items[x].boxNumber) {
-                  labelBox = box.boxLabel;
-                }
-              }
-              axios
-                .post("/savePullOutItemRequest", {
-                  plID: response.data.id,
-                  companyType: this.newTransaction.companyName,
-                  brand: this.newTransaction.items[x].categorybrand,
-                  boxNumber: this.newTransaction.items[x].boxNumber,
-                  boxLabel: labelBox,
-                  itemCode: this.newTransaction.items[x].code,
-                  quantity: this.newTransaction.items[x].quantity,
-                  status: "draft",
-                  email: this.$page.props.auth.user.email,
-                })
-                .then((response) => {})
-                .catch((error) => {
-                  //console.error(error);
-                });
-            }
-            this.$refs.uploadImage.submit();
-            this.openDraftMessageBox();
-          })
-          .catch((error) => {
-            //console.error(error);
+            status: "draft",
           });
+          this.transferTransactionID = response.data;
+
+          this.$refs.uploadImage.submit();
+          this.openDraftMessageBox();
+        } catch (error) {
+          console.error(error);
+        }
       }
     },
     openMessageBox(typePO) {

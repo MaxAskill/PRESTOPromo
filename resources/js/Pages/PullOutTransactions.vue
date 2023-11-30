@@ -350,8 +350,8 @@ export default {
           console.error(error);
         });
 
-      console.log("ID", row.plID);
-      console.log("Company", company);
+      // console.log("ID", row.plID);
+      // console.log("Company", company);
       axios
         .get("/fetchImageBranchDoc", {
           params: {
@@ -360,11 +360,11 @@ export default {
           },
         })
         .then((response) => {
-          console.log("Response Images:", response.data);
+          // console.log("Response Images:", response.data);
           response.data.imagePaths.forEach((path) => {
             let name = path.split("/");
             name = name[name.length - 1];
-            console.log("path: ", name, path);
+            // console.log("path: ", name, path);
             this.viewImages.push({
               name: name,
               url: path,

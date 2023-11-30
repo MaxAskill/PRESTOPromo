@@ -23,9 +23,25 @@
             <el-table-column prop="boxLabel" label="Box Label" min-width="300" />
             <el-table-column fixed="right" label="Action" width="120">
               <template #default="scope">
-                <el-button type="danger" @click="transferBoxLabel(scope.row)">
-                  <el-icon><Delete /></el-icon>
-                </el-button>
+                <el-popconfirm
+                  width="210"
+                  title="Are you sure you want to delete this box?"
+                  confirm-button-text="CONFIRM"
+                  cancel-button-text="CANCEL"
+                  @confirm="confirmDeleteBoxLabel"
+                >
+                  <template #reference>
+                    <el-button
+                      type="danger"
+                      @click="
+                        deleteBoxLabel = scope.row;
+                        deleteBoxLabel.boxLength = transferredData.boxLabels.length;
+                      "
+                    >
+                      <el-icon><Delete /></el-icon>
+                    </el-button>
+                  </template>
+                </el-popconfirm>
               </template>
             </el-table-column>
           </el-table>
@@ -52,31 +68,47 @@ export default {
     };
   },
   methods: {
-    transferBoxLabel(deleteboxLabel) {
-      this.deleteBoxLabel = deleteboxLabel;
-      this.deleteBoxLabel.boxLength = this.transferredData.boxLabels.length;
-      ElMessageBox.confirm("Are you sure you want to delete this box?", {
-        confirmButtonText: "CONFIRM",
-        cancelButtonText: "CANCEL",
-        type: "warning",
-      })
-        .then(() => {
-          ElMessage({
-            type: "success",
-            message: "Box Deleted",
-          });
-          this.deletedItems = this.transferredData.items.filter(
-            (obj) =>
-              obj.boxNumber ===
-              this.transferredData.boxLabels[
-                this.transferredData.boxLabels.findIndex(
-                  (tablerow) => tablerow.id === this.deleteBoxLabel.id
-                )
-              ].id
-          );
-          this.removeBoxLabel();
-        })
-        .catch(() => {});
+    // transferBoxLabel(deleteboxLabel) {
+    //   this.deleteBoxLabel = deleteboxLabel;
+    //   this.deleteBoxLabel.boxLength = this.transferredData.boxLabels.length;
+    //   // ElMessageBox.confirm("Are you sure you want to delete this box?", {
+    //   //   confirmButtonText: "CONFIRM",
+    //   //   cancelButtonText: "CANCEL",
+    //   //   type: "warning",
+    //   // })
+    //   //   .then(() => {
+    //   //     ElMessage({
+    //   //       type: "success",
+    //   //       message: "Box Deleted",
+    //   //     });
+    //   //     this.deletedItems = this.transferredData.items.filter(
+    //   //       (obj) =>
+    //   //         obj.boxNumber ===
+    //   //         this.transferredData.boxLabels[
+    //   //           this.transferredData.boxLabels.findIndex(
+    //   //             (tablerow) => tablerow.id === this.deleteBoxLabel.id
+    //   //           )
+    //   //         ].id
+    //   //     );
+    //   //     this.removeBoxLabel();
+    //   //   })
+    //   //   .catch(() => {});
+    // },
+    confirmDeleteBoxLabel() {
+      ElMessage({
+        type: "success",
+        message: "Box Deleted",
+      });
+      this.deletedItems = this.transferredData.items.filter(
+        (obj) =>
+          obj.boxNumber ===
+          this.transferredData.boxLabels[
+            this.transferredData.boxLabels.findIndex(
+              (tablerow) => tablerow.id === this.deleteBoxLabel.id
+            )
+          ].id
+      );
+      this.removeBoxLabel();
     },
     removeBoxLabel() {
       let localData = this.transferredData.boxLabels.findIndex(

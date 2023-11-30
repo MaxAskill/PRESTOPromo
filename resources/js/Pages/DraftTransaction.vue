@@ -206,6 +206,10 @@ export default {
       }
     },
     fetchData() {
+      console.log("Company:", this.$page.props.auth.user.company);
+      console.log("Promo Email:", this.$page.props.auth.user.email);
+      console.log("User ID:", this.$page.props.auth.user.id);
+
       axios
         .get("/fetchUserRequestDraft", {
           params: {
@@ -215,6 +219,7 @@ export default {
           },
         })
         .then((response) => {
+          console.log("Response:", response.data);
           this.tableData = response.data;
         })
         .catch((error) => {

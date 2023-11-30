@@ -37,11 +37,11 @@
               />
             </div>
             <div class="col-span-1">
-              <label class="text-gray-500 text-sm">Chain Code</label>
+              <label class="text-gray-500 text-sm">Chain Name</label>
               <el-input
                 v-model.trim="user.chainCode"
                 disabled
-                placeholder="Chain Code"
+                placeholder="Chain Name"
                 class="w-full"
               />
             </div>
@@ -103,7 +103,7 @@
                     </el-tooltip>
                     <el-tooltip
                       v-else
-                      content="Your request to add this branch is Approved by the Agent."
+                      content="Your request to add this branch is Approved by the Officer."
                       placement="top"
                     >
                       <el-tag class="m-0" color="white" type="success">Approved</el-tag>
@@ -130,7 +130,7 @@
                   width="50"
                   header-align="center"
                   align="center"
-                  fixed="right"
+                  fixed="center"
                 >
                   <template #default="scope">
                     <el-tooltip
@@ -154,7 +154,7 @@
           <br />
           <div class="flex justify-center">
             <!-- <el-tooltip
-              content="You still have a pending request. Kindly wait for the approval by your agent."
+              content="You still have a pending request. Kindly wait for the approval by your officer."
               placement="bottom"
               :disabled="disableRequestBranchTooltip"
             > -->
@@ -218,13 +218,13 @@ export default {
         },
         {
           prop: "chainCode",
-          label: "Chain Code",
-          minWidth: 120,
+          label: "Chain Name",
+          minWidth: 130,
         },
         {
           prop: "company",
           label: "Company",
-          minWidth: 130,
+          minWidth: 140,
         },
       ],
     };

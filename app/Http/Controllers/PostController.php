@@ -34,441 +34,121 @@ use Illuminate\Support\Facades\File;
 class PostController extends Controller
 {
 
-    public function checkAccStatus(Request $request){
-
-        // $status = DB::table('users as a')
-        // ->join('companyTbl as b', 'a.company', '=', 'b.id')
-        // ->select('b.shortName as company','a.status')
-        // ->where('a.email', $request->email)
-        // ->get();
-        $status = DB::table('users as a')
-                    ->join('companyTbl as b', 'a.company', '=', 'b.id')
-                    ->select('b.shortName as company', 'a.status')
-                    ->where('a.email', $request->email)
-                    ->get();
-
-        // $status = DB::table('users as a')
-        //             ->select('a.status')
-        //             ->where('a.email', $request->email)
-        //             ->get();
-
-        return response()->json($status);
-    }
-
-    public function postPullOutRequest(Request $request){
-
-        //GETTING THE EFFECTIVE PRICE OF THE SPECIFIC ITEM
-        $price = DB::table('epc_items')
-                    ->select('EffectivePrice')
-                    ->where('ItemNo', '=', $request->itemCode)
-                    ->first();
-
-        //COMPUTATION TOTAL AMOUNT
-        $amount = floatval($price->EffectivePrice) * floatval($request->quantity);
-
-        //CONDITION WITH THE COMPANY
-        if ($request->chainCode == "RDS"){
-            $company = 5; //AHLC
-        }else{
-            $company = 4; //EPC
-        }
-
-        $date = now()->timezone('Asia/Manila'); // GETTING THE TIME ZONE IN PH
-
-        //PUTTING IT INTO THE OBJECT FOR THE MODEL
-        $input = new PullOutModel();
-        $input->plID = $request->id;
-        $input->chainCode = $request->chainCode;
-        $input->company = $company;
-        $input->branchName = $request->branchName;
-        $input->brand = $request->brand;
-        $input->transactionType = $request->transactionType;
-        $input->boxNumber = $request->boxNumber;
-        $input->boxLabel = $request->boxLabel;
-        $input->itemCode = $request->itemCode;
-        $input->quantity = $request->quantity;
-        $input->amount = $amount;
-        $input->status = 'unprocessed';
-        $input->dateTime = $date;
-
-        //SAVING
-        $input->save();
-        return response()->json($input);
-
-    }
-
-    public function generatePDF(Request $request){
-
-        //GET THE ID
-        $id = $request->input('plID');
-
-        if($request->company == "EPC"){
-            //GET THE ONLY NEEDED SINGLE DATA AND WILL BE USE THE QUANTITY AND TOTAL AMOUNT
-            $tempdata = DB::table('pullOutBranchTbl as a')
-                            ->join('pullOutItemsTbl as b', 'a.id', '=', 'b.plID')
-                            ->join('epc_items as c', 'b.itemCode', '=', 'c.ItemNo')
-                            ->select('a.chainCode', 'a.branchName', 'a.transactionType',
-                            DB::raw('CAST(a.dateTime AS DATE) as date'), 'b.quantity',
-                            'b.amount', 'b.status', 'b.boxLabel',
-                            'c.ItemDescription as itemDescription', 'b.itemCode', 'b.brand', 'a.company')
-                            ->where('a.id', $id)
-                            ->get();
-
-            $emaildata = DB::table('pullOutBranchTbl as a')
-                        ->join('pullOutItemsTbl as b', 'a.id', '=', 'b.plID')
-                        ->join('epc_items as c', 'b.itemCode', '=', 'c.ItemNo')
-                        ->select('a.chainCode', 'a.branchName', 'a.transactionType',
-                        DB::raw('CAST(a.dateTime AS DATE) as date'), 'b.quantity',
-                        'b.amount', 'b.status', 'b.boxLabel',
-                        'c.ItemDescription as itemDescription', 'b.itemCode', 'b.brand')
-                        ->where('a.id', $id)
-                        ->where('b.status', 'edited')
-                        ->get();
-
-            //GETTING THE ONLY BOX LABEL GROUP AND THE SUB TOTAL OF QUANTITY AND AMOUNT
-            $data = DB::table('pullOutItemsTbl as a')
-                            ->select('a.brand',
-                                DB::raw('SUM(a.quantity) as quantity_total'),
-                                DB::raw('SUM(a.amount) as amount_total')
-                            )
-                            ->where('a.plID', $id)
-                            ->groupBy('a.brand')
-                            ->get();
-
-            //GETTING THE BOX COUNT
-            $box = DB::table('pullOutItemsTbl')
-                    ->select('boxLabel')
-                    ->where('plID', $id)
-                    ->groupBy('boxLabel')
-                    ->get();
-        } else if($request->company == "NBFI"){
-            //GET THE ONLY NEEDED SINGLE DATA AND WILL BE USE THE QUANTITY AND TOTAL AMOUNT
-            $tempdata = DB::table('pullOutBranchTblNBFI as a')
-                            ->join('pullOutItemsTblNBFI as b', 'a.id', '=', 'b.plID')
-                            ->join('nbfi_items as c', 'b.itemCode', '=', 'c.ItemNo')
-                            ->select('a.chainCode', 'a.branchName', 'a.transactionType',
-                            DB::raw('CAST(a.dateTime AS DATE) as date'), 'b.quantity',
-                            'b.amount', 'b.status', 'b.boxLabel',
-                            'c.ItemDescription as itemDescription', 'b.itemCode', 'b.brand', 'a.company')
-                            ->where('a.id', $id)
-                            ->get();
-
-            $emaildata = DB::table('pullOutBranchTblNBFI as a')
-                            ->join('pullOutItemsTblNBFI as b', 'a.id', '=', 'b.plID')
-                            ->join('nbfi_items as c', 'b.itemCode', '=', 'c.ItemNo')
-                            ->select('a.chainCode', 'a.branchName', 'a.transactionType',
-                            DB::raw('CAST(a.dateTime AS DATE) as date'), 'b.quantity',
-                            'b.amount', 'b.status', 'b.boxLabel',
-                            'c.ItemDescription as itemDescription', 'b.itemCode', 'b.brand')
-                            ->where('a.id', $id)
-                            ->where('b.status', 'edited')
-                            ->get();
-
-            //GETTING THE ONLY BOX LABEL GROUP AND THE SUB TOTAL OF QUANTITY AND AMOUNT
-            $data = DB::table('pullOutItemsTblNBFI as a')
-                            ->select('a.brand',
-                                DB::raw('SUM(a.quantity) as quantity_total'),
-                                DB::raw('SUM(a.amount) as amount_total')
-                            )
-                            ->where('a.plID', $id)
-                            ->groupBy('a.brand')
-                            ->get();
-            //GETTING THE BOX COUNT
-            $box = DB::table('pullOutItemsTblNBFI')
-                    ->select('boxLabel')
-                    ->where('plID', $id)
-                    ->groupBy('boxLabel')
-                    ->get();
-        }
-
-        //GETTING THE DRIVERS
-        $drivers = DB::table('driverMaintenance')
-                    ->select('name', 'position')
-                    ->where('status', 'Active')
-                    ->get();
-
-
-
-        // var_dump($box);
-        $boxCount = $box->count(); //BOX COUNT
-
-        $length = $tempdata->count(); // LENGTH OF THE DATA
-
-        $totalQuantity = 0;
-        $totalAmount = 0;
-
-        $statusCount = false;
-        //COMPUTATION FOR THE TOTAL OF QUANTITY AND AMOUNT
-        for ($i = 0; $i < $length; $i++){
-            $totalQuantity = $totalQuantity + $tempdata[$i]->quantity;
-            $totalAmount = $totalAmount + $tempdata[$i]->amount;
-
-            if($tempdata[$i]->status == "edited"){
-                $statusCount = true;
-            }
-
-        }
-
-        $tempdate = $tempdata[0]->date;
-        //FORMATTING DATE
-        $formattedDateStart = date("F j, Y", strtotime($request->dateStart));
-        $formattedDateEnd = date("F j, Y", strtotime($request->dateEnd));
-        $formattedDate = date("F j, Y", strtotime($tempdate));
-
-        //FORMATTING AMOUNT
-        $formattedAmount = number_format($totalAmount, 2, '.', ',');
-        // var_dump($boxCount);
-        if($request->regenerate == "regenerate"){
-            //TRANSFERRING INTO ARRAY TO BE EASY ACCESS ON SINGLE DATA
-            $info = [
-                'name' => $request->name,
-                'boxCount' => $boxCount,
-                'totalQuantity' => $totalQuantity,
-                'totalAmount' => $formattedAmount,
-                'date' => $formattedDate,
-                'branchName' => $tempdata[0]->branchName,
-                'chainCode' => $tempdata[0]->chainCode,
-                'dateStart' => $formattedDateStart,
-                'dateEnd' => $formattedDateEnd,
-                'company' => $tempdata[0]->company
-            ];
-        }else{
-            //TRANSFERRING INTO ARRAY TO BE EASY ACCESS ON SINGLE DATA
-            $info = [
-                'name' => $request->name,
-                'boxCount' => $boxCount,
-                'totalQuantity' => $totalQuantity,
-                'totalAmount' => $formattedAmount,
-                'date' => $formattedDate,
-                'branchName' => $tempdata[0]->branchName,
-                'chainCode' => $tempdata[0]->chainCode,
-                'dateStart' => $request->dateStart,
-                'dateEnd' => $request->dateEnd,
-                'company' => $tempdata[0]->company
-            ];
-        }
-
-
-        //CONVERTING IT INTO STRING FOR THE FILE NAME
-        $string = strval($tempdata[0]->branchName);
-        $today = date('Y-m-d');
-
-        //CONDITION OF PDF TO BE SHOW
-        //CPO - BranchDisposal
-        if($tempdata[0]->transactionType == "CPO Item for Disposal in the Store c/o Supervisor"){
-            $file = "itemDisposal";
-        }
-        //CPO - Store
-        else if($tempdata[0]->transactionType == "CPO for Transfer to Another Store"){
-            $file = "pullOutLetter";
-        }
-        //CPO - Warehouse(DC)
-        else{
-            $file = "directPullOut";
-        }
-
-        //LOADING IT INTO THE PDF
-        $pdf = PDF::loadView($file, array('data' => $data, 'drivers' => $drivers),  $info)->setPaper('legal','portrait');
-
-        if($statusCount == true){
-            $viewToEmail = "EmailApprovedwithChanges";
-            $tempdata = $emaildata;
-        }else{
-            $viewToEmail = "EmailApproved";
-        }
-
-        $boxLabels = '';
-        $itemCodes = '';
-        $itemDescriptions = '';
-        $brands = '';
-        $quantities = '';
-
-        foreach ($tempdata as $data) {
-            $boxLabels .= $data->boxLabel . ',';
-            $itemCodes .= $data->itemCode . ',';
-            $itemDescriptions .= $data->itemDescription . ',';
-            $brands .= $data->brand . ',';
-            $quantities .= $data->quantity . ',';
-        }
-
-        $name = DB::table('users')
-                    ->select('name')
-                    ->where('id', $request->userID)
-                    ->first()->name;
-
-        $promoName = DB::table('users')
-                        ->select('name')
-                        ->where('email', $request->email)
-                        ->first()->name;
-
-
-        //SEND EMAIL IF APPROVED
-        $mail = array(
-            'transactionID' => $request->plID,
-            'status' => $request->status,
-            'email' => $request->email,
-            'name' => $promoName,
-            'viewToEmail' => $viewToEmail,
-            'adminName' => $name,
-            'viewEmail' => $viewToEmail,
-            'chainCode' => $tempdata[0]->chainCode,
-            'branchName' => $tempdata[0]->branchName,
-            'transactionType' => $tempdata[0]->transactionType,
-            'boxLabels' => $boxLabels,
-            'itemCodes'  => $itemCodes,
-            'itemDescriptions' => $itemDescriptions,
-            'brands' => $brands,
-            'quantities' => $quantities,
-        );
-
-        if($request->regenerate == "generate")
-            Mail::to($request->email)->send(new MailNotify($mail));
-
-        $date = now()->timezone('Asia/Manila'); // GETTING THE TIME ZONE IN PH
-
-        $log = new TransactionModel();
-        $log->dateTime = $date;
-        $log->userID = $request->userID;
-        $log->action_type = 'Generate PDF';
-        $log->table_affected = 'generatePDF';
-        $log->new_data = json_encode($request->all());
-        $log->save();
-
-        return $pdf->stream($today.' '.$string.'.pdf');
-    }
-
-    public function sendDeniedBranch(Request $request){
-
-        $date = now()->timezone('Asia/Manila'); // GETTING THE TIME ZONE IN PH
-
-        $name = DB::table('users')
-                    ->select('name')
-                    ->where('id', $request->userID)
-                    ->first()->name;
-
-        if($request->company == "EPC"){
-            $denied = DB::select('UPDATE pullOutBranchTbl
-                            SET editedBy = \''.$name.'\',
-                            updated_at = \''.$date.'\',
-                            status = "denied"
-                            WHERE id = \''.$request->id.'\' ');
-            $table_affected = "EPC";
-            $old_data = PullOutBranchModel::find($request->id);
-        } else if($request->company == "NBFI"){
-            $denied = DB::select('UPDATE pullOutBranchTblNBFI
-                            SET editedBy = \''.$name.'\',
-                            updated_at = \''.$date.'\',
-                            status = "denied"
-                            WHERE id = \''.$request->id.'\' ');
-            $table_affected = "NBFI";
-            $old_data = PullOutBranchModelNBFI::find($request->id);
-
-        }
-
-        $reasons = DB::table('reasonMaintenance')
-                    ->select('reasonLabel')
-                    ->get();
-
-        $flag = true;
-        for ($ctr = 0; $ctr < $reasons->count(); $ctr++){
-            if(strtolower($reasons[$ctr]->reasonLabel) == strtolower($request->reason)){
-                $flag = false;
-                break;
-            }
-        }
-        if($flag){
-
-            $input = new EpcReasonModel();
-            $input->reasonLabel = ucfirst($request->reason);
-            $input->dateTime = $date;
-            $input->company = $request->company;
-            $input->status = 'Active';
-
-            $input->save();
-
-            $log = new TransactionModel();
-            $log->dateTime = $date;
-            $log->userID = $request->userID;
-            $log->action_type = 'insert';
-            $log->table_affected = 'reasonmaintenance';
-            $log->new_data = json_encode($request->all());
-            $log->save();
-
-        }
-
-
-        $name = DB::table('users')
-                    ->select('name')
-                    ->where('id', $request->userID)
-                    ->first()->name;
-
-        $oldData = $old_data->toArray(); // Retrieve the old data before the update
-
-        $log = new TransactionModel();
-        $log->dateTime = $date;
-        $log->userID = $request->userID;
-        $log->action_type = 'denied';
-        $log->table_affected = $table_affected;
-        $log->old_data = json_encode($oldData);
-        $log->new_data = json_encode($request->all());
-        $log->save();
-
-        $data = array(
-            'transactionID' => $request->id,
-            'name' => $request->promoName,
-            'status' => 'Denied',
-            'reason' => $request->reason,
-            'adminName' => $name
-        );
-
-        $res = Mail::to($request->email)->send(new MailNotify($data));
-
-        return response()->json($reasons);
-
-    }
-
     public function savePullOutBranchRequest(Request $request){
 
-        //CONDITION WITH THE COMPANY
-        // if ($request->chainCode == "RDS"){
-        //     $company = 5; //AHLC
-        // }else{
-        //     $company = 4; //EPC
-        // }
+            $date = now()->timezone('Asia/Manila'); // GETTING THE TIME ZONE IN PH
 
-        $date = now()->timezone('Asia/Manila'); // GETTING THE TIME ZONE IN PH
+            //SELECTING MODEL AND TABLE BY COMPANY
+            if($request->companyType == 'EPC' || $request->companyType == 'AHLC'){
+                $branch = new PullOutBranchModel();
+                $tbItem = 'epc_items_barcode';
+                $table_affected = 'pullOutBranchTbl';
+            }
+            else if($request->companyType == 'NBFI' || $request->companyType == 'ASC' || $request->companyType == 'CMC'){
+                $branch = new PullOutBranchModelNBFI();
+                $tbItem = 'nbfi_items_barcode';
+                $table_affected = 'pullOutBranchTblNBFI';
+            }
 
-        if($request->companyType == 'EPC' || $request->companyType == 'AHLC')
-            $branch = new PullOutBranchModel();
-        else if($request->companyType == 'NBFI' || $request->companyType == 'ASC' || $request->companyType == 'CMC')
-            $branch = new PullOutBranchModelNBFI();
+            //FIELDS FOR SAVING ON DB
+            $branch->chainCode = $request->chainCode;
+            $branch->company = $request->companyType;
+            $branch->branchName = $request->branchName;
+            $branch->transactionType = $request->transactionType;
+            $branch->status = $request->status;
+            $branch->dateTime = $date;
+            $branch->promoEmail = $request->email;
+            $branch->SLA_count = "15";
+            $branch->SLA_status = "In Time";
 
-        $branch->chainCode = $request->chainCode;
-        $branch->company = $request->companyType;
-        $branch->branchName = $request->branchName;
-        $branch->transactionType = $request->transactionType;
-        $branch->status = $request->status;
-        $branch->dateTime = $date;
-        $branch->promoEmail = $request->email;
-        $branch->SLA_count = "15";
-        $branch->SLA_status = "In Time";
-        //SAVING
-        $branch->save();
+            //SAVING
+            $branch->save();
 
-        $dataID = DB::table('users')
-                    ->select('id')
-                    ->where('email', $request->email)
-                    ->first();
+            //FILTERING FOR SAVING ON LOGS
+            $new_data = array(
+                'id' => $branch->id,
+                'branchName' => $request->branchName,
+                'promoEmail' => $request->email,
+                'status' => $request->status
+            );
+            //GETTING THE ID OF THE USER
+            $dataID = DB::table('users')
+                        ->select('id')
+                        ->where('email', $request->email)
+                        ->first();
 
-        $log = new TransactionModel();
-        $log->dateTime = $date;
-        $log->userID = $dataID->id;
-        $log->action_type = 'insert';
-        $log->table_affected = 'pullOutBranchTbl';
-        $log->new_data = json_encode($request->all());
-        $log->save();
+            //FIELDS ON TRANSACTION LOGS
+            $log = new TransactionModel();
+            $log->dateTime = $date;
+            $log->userID = $dataID->id;
+            $log->action_type = 'insert';
+            $log->table_affected = $table_affected;
+            $log->new_data = json_encode($new_data);
 
-        return response()->json($branch);
+            //SAVING
+            $log->save();
+
+            //TRANSFERING THE OBJECT
+            $items = $request->items;
+            $boxes = $request->boxes;
+
+            foreach($items as $item){ //LOOPING BY ITEMS
+                foreach($boxes as $box){ //LOOPING BY BOX
+                    if($box['id'] == $item['boxNumber']){ //CONDITION FOR BOX LABEL
+
+                        $price = DB::table($tbItem)
+                                    ->select('EffectivePrice')
+                                    ->where('ItemNo', '=', $item['code'])
+                                    ->first(); //GETTING THE PRICE PER CODE
+
+                        //INITIALIZE FOR THE MODEL OF ITEM
+                        $itemSave = $request->companyType == 'EPC' || $request->companyType == 'AHLC' ? new PullOutItemModel() : new PullOutItemModelNBFI();
+
+                        //COMPUTATION TOTAL AMOUNT
+                        $amount = floatval($price->EffectivePrice) * floatval($item['quantity']);
+
+                        //FIELDS FOR ITEMS
+                        $itemSave->plID = $branch->id;
+                        $itemSave->brand = $item['categorybrand'];
+                        $itemSave->boxNumber = $item['boxNumber'];
+                        $itemSave->boxLabel = $box['boxLabel'];
+                        $itemSave->itemCode = $item['code'];
+                        $itemSave->quantity = $item['quantity'];
+                        $itemSave->amount = $amount;
+                        $itemSave->status = $request->status;
+                        $itemSave->dateTime = $date;
+
+                        //SAVING
+                        $itemSave->save();
+
+                        //TABLE AFFECTED FOR LOGS
+                        $table_affected = $request->companyType == 'EPC' || $request->companyType == 'AHLC' ? 'pullOutBranchTbl' : 'pullOutBranchTblNBFi';
+
+                        //FIELDS FOR NEW DATA FOR LOGS
+                        $new_data = array(
+                            'ItemCode' => $item['code'],
+                            'BoxNumber' => $box['boxLabel'],
+                            'Quantity' => $item['quantity'],
+                            'Amount' => $amount
+                        );
+
+                        //FIELDS FOR TRANSACTION LOGS
+                        $log = new TransactionModel();
+                        $log->dateTime = $date;
+                        $log->userID = $dataID->id;
+                        $log->action_type = 'insert';
+                        $log->table_affected = $table_affected;
+                        $log->new_data = json_encode($new_data);
+
+                        //SAVING
+                        $log->save();
+                    }
+                }
+            }
+
+
+            return response()->json($branch->id);
+
 
     }
 
@@ -478,7 +158,7 @@ class PostController extends Controller
                 //GETTING THE EFFECTIVE PRICE OF THE SPECIFIC ITEM
             if($request->companyType == 'EPC' || $request->companyType == 'AHLC'){
                 $item = new PullOutItemModel();
-                $price = DB::table('epc_items')
+                $price = DB::table('epc_items_barcode')
                             ->select('EffectivePrice')
                             ->where('ItemNo', '=', $request->itemCode)
                             ->first();
@@ -486,7 +166,7 @@ class PostController extends Controller
             }
             else if($request->companyType == 'NBFI' || $request->companyType == 'CMC' || $request->companyType == 'ASC'){
                 $item = new PullOutItemModelNBFI();
-                $price = DB::table('nbfi_items')
+                $price = DB::table('nbfi_items_barcode')
                             ->select('EffectivePrice')
                             ->where('ItemNo', '=', $request->itemCode)
                             ->first();
@@ -790,7 +470,7 @@ class PostController extends Controller
             if ($request->hasFile('image')) {
                 // $image = $request->file('image');
                 $image = $request->image;
-                $imageName = $request->transactionID . '-' . $branchName . '-' . $request->uID .'-'. time() . '.' . $image->getClientOriginalExtension();
+                $imageName = $request->transactionID . '-' . $branchName . '-' . $request->uID .'-'. time() . '.webp';
 
 
                 $filePath = public_path('uploads/EPC');
@@ -798,7 +478,7 @@ class PostController extends Controller
                 $img = Image::make($image->path());
                 $img->resize(1280, 720, function ($const) {
                     $const->aspectRatio();
-                })->save($filePath.'/'.$imageName);
+                })->save($filePath.'/'.$imageName, 80, 'webp');
 
                 // $image->move(public_path('uploads/EPC'), $imageName);
 
