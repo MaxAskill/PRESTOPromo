@@ -411,7 +411,7 @@
           </div>
           <br />
           <div class="flex justify-center items-center gap-3">
-            <a href="http://104.199.254.102:80/pullouttransactions" v-if="showCancel"
+            <a href="http://192.168.0.7:97/pullouttransactions" v-if="showCancel"
               ><el-button type="warning">Cancel</el-button></a
             >
             <el-button @click="openMessageBox('draft')" type="warning" v-else
@@ -476,7 +476,14 @@ import AuthenticatedLayout from "@/Layouts/DashboardLayout.vue";
 import { Head, Link } from "@inertiajs/vue3";
 import axios from "axios";
 import DeleteBoxLabelModal from "./DeleteBoxLabelModal.vue";
-import { ElButton, ElMessage, ElMessageBox, ElProgress, buttonEmits } from "element-plus";
+import {
+  ElButton,
+  ElMessage,
+  ElMessageBox,
+  ElProgress,
+  buttonEmits,
+  ElSelect,
+} from "element-plus";
 import { h } from "vue";
 
 export default {
@@ -655,7 +662,7 @@ export default {
     loadingPercentage: function () {
       if (this.loadingPercentage == 100) {
         clearInterval(this.intervalID);
-        location.replace("http://104.199.254.102:80/drafttransaction");
+        location.replace("http://192.168.0.7:97/drafttransaction");
       }
     },
   },
@@ -676,6 +683,7 @@ export default {
     handleViewportResize() {
       this.viewportWidth = window.innerWidth;
     },
+    // (Open) Validation of data that are inputted
     validateSubmit() {
       let uniqueItems = [
         ...new Set(this.newTransaction.items.map((item) => item.boxNumber)),
@@ -737,6 +745,8 @@ export default {
         //disabled tooltip
       } else this.isDisabledSubmit = true;
     },
+    // (Closed) Validation of data that are inputted
+    // (Open) Showing the Add New Box Label and Delete Box Label
     showButtons() {
       if (
         this.newTransaction.companyName &&
@@ -749,6 +759,7 @@ export default {
         else this.isEditBLDisabled = false;
       } else this.isShowButton = false;
     },
+    // (Closed) Showing the Add New Box Label and Delete Box Label
     async fetchCompany() {
       const companyUser = await axios.get("/fetchCompanyByUser", {
         params: {
@@ -788,7 +799,7 @@ export default {
       });
 
       this.listChainCode = chainUser.data;
-
+      console.log("Chain: ", chainUser.data);
       // axios
       //   .get("/fetchChainByUser", {
       //     params: {
@@ -1048,10 +1059,12 @@ export default {
         this.newItemInput = parts[0];
       }
     },
+    // (Open) Enabling the Add Box Label Button and Disabling Edit Box Label Button
     addBoxLabel() {
       this.isBoxLabel = true;
       this.isEditBLDisabled = true;
     },
+    // (End) Enabling the Add Box Label Button and Disabling Edit Box Label Button
     saveBoxLabel() {
       this.isNewBoxLabel = !this.newBoxLabel ? true : false;
       if (this.isNewBoxLabel) return 0;
@@ -1104,6 +1117,7 @@ export default {
       this.isTransactionType = true;
       this.isEditBLDisabled = false;
     },
+    // (Open) Unshowing the Input Dropdown Box Label and clearing the content
     cancelBoxLabel() {
       this.isNewBoxLabel = false;
       this.isBoxLabel = false;
@@ -1111,6 +1125,7 @@ export default {
       if (this.newTransaction.boxLabels.length == 0) this.isEditBLDisabled = true;
       else this.isEditBLDisabled = false;
     },
+    // (Close) Unshowing the Input Dropdown Box Label and clearing the content
     addItem(boxNUMBER) {
       this.isItem = false;
       this.isAddItem = false;
@@ -1945,7 +1960,7 @@ export default {
         },
       }).then(() => {
         // console.log("Reload Page Submit");
-        location.replace("http://104.199.254.102:80/pullouttransactions");
+        location.replace("http://192.168.0.7:97/pullouttransactions");
       });
     },
     openDraftMessageBox() {
@@ -1957,7 +1972,7 @@ export default {
       //   center: true,
       //   callback: () => {
       //     // console.log("Reload Page");
-      //     location.replace("http://104.199.254.102:80/drafttransaction");
+      //     location.replace("http://192.168.0.7:97/drafttransaction");
       //   },
       // });
       this.loadingPercentage = 1;
@@ -2003,7 +2018,12 @@ export default {
   background: rgb(253, 230, 230) !important;
 }
 @media only screen and (max-width: 500px) {
-  .select-boxlabel .el-select-dropdown {
+  /* .select-boxlabel .el-select-dropdown {
+    white-space: nowrap !important;
+    max-width: 95vw !important;
+    overflow-x: auto !important;
+  } */
+  .el-select-dropdown {
     white-space: nowrap !important;
     max-width: 95vw !important;
     overflow-x: auto !important;
@@ -2041,6 +2061,27 @@ export default {
     max-height: 70vh !important;
   }
 }
+@media all and (device-width: 768px) and (device-height: 1024px) and (orientation: portrait) {
+  .foo {
+    height: 1024px;
+  }
+}
+
+/* iPad with landscape orientation. */
+@media all and (device-width: 768px) and (device-height: 1024px) and (orientation: landscape) {
+  .foo {
+    height: 768px;
+  }
+}
+
+/* iPhone
+You can also target devices with aspect ratio. */
+@media screen and (device-aspect-ratio: 40/71) {
+  .foo {
+    height: 500px;
+  }
+}
+
 #imgDialog .el-dialog__body img {
   width: 100% !important;
   height: 100% !important;

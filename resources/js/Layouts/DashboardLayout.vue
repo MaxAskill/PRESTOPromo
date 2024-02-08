@@ -156,7 +156,7 @@ export default {
       >
         <div :class="!isCollapse ? 'flex mx-3 px-2 py-2.5' : 'flex mx-3 my-2.5'">
           <div class="w-9">
-            <img src="../../../public/images/BElogo.png" />
+            <img src="../../../public/images/CompanyIcon.png" />
           </div>
           <label v-if="!isCollapse" class="mt-1 text-xl font-semibold px-3">
             PRESTO</label
@@ -228,6 +228,9 @@ export default {
             Time: <b>{{ time }}</b>
           </span>
         </div>
+        <div class="absolute bottom-0 left-2 w-fit">
+          <p class="text-xs text-slate-500">v1.0.0.2311Y</p>
+        </div>
       </el-menu>
 
       <div class="flex-1 relative float-right">
@@ -270,7 +273,7 @@ export default {
   </div>
 </template>
 
-<style>
+<style scoped>
 .el-menu-vertical:not(.el-menu--collapse) {
   width: 260px;
   height: 100vh;

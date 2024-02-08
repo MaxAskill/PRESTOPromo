@@ -60,6 +60,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     Route::get("/fetchCompany", [FetchController::class, 'fetchCompany']);
+    Route::get("/fetchCompanyListByUser", [FetchController::class, 'fetchCompanyListByUser']);
     Route::get("/fetchChain", [FetchController::class, 'fetchChain']);
     Route::get("/fetchChainName", [FetchController::class, 'fetchChainName']);
     Route::get("/fetchCompanyByUser", [FetchController::class, 'fetchCompanyByUser']);

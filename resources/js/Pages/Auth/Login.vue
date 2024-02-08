@@ -32,7 +32,7 @@ const submit = () => {
       onFinish: () => form.reset("password"),
     });
   else
-    window.location.href = `http://192.168.0.7:4040/#/login?${form.email}&${form.password}`;
+    window.location.href = `http://192.168.0.7:93/#/login?${form.email}&${form.password}`;
 };
 
 watch(

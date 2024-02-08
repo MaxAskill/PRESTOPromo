@@ -39,10 +39,7 @@ document.addEventListener("visibilitychange", function () {
     </div>
 
     <form @submit.prevent="submit">
-      <div
-        class="mt-4 flex items-center"
-        :class="!verificationLinkSent ? 'justify-between' : 'justify-end'"
-      >
+      <div class="mt-4 flex items-center justify-center">
         <PrimaryButton
           v-if="!verificationLinkSent"
           :class="{ 'opacity-25': form.processing }"
@@ -51,13 +48,13 @@ document.addEventListener("visibilitychange", function () {
           Resend Verification Email
         </PrimaryButton>
 
-        <Link
+        <!-- <Link
           :href="route('logout')"
           method="post"
           as="button"
           class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >Log In</Link
-        >
+        > -->
       </div>
     </form>
   </GuestLayout>

@@ -43,12 +43,12 @@ class RegisteredUserController extends Controller
 
         if($domain == 'barbizonfashion.com') {
             $company = 1;
-            $position = "Agent";
+            $position = "Reviewer";
             $status = "Active";
         }
         else if ($domain == 'everydayproductscorp.com') {
             $company = 4;
-            $position = "Agent";
+            $position = "Reviewer";
             $status = "Active";
         }
         else {

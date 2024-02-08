@@ -197,9 +197,15 @@ export default {
   },
   computed: {},
   mounted() {
-    axios.get("/fetchCompany").then((response) => {
-      this.companyList = response.data;
-    });
+    axios
+      .get("/fetchCompanyListByUser", {
+        params: {
+          company: this.$page.props.auth.user.company,
+        },
+      })
+      .then((response) => {
+        this.companyList = response.data;
+      });
   },
   methods: {
     fetchChainCode() {

@@ -104,6 +104,17 @@ class FetchController extends Controller
             if (!($isStartDate <= $today && $isEndDate >= $today) && !$value->permanent)
                 unset($data[$key]);
         }
+        $temp_array = [];
+        foreach ($data as $key => $value){
+            array_push($temp_array, $value->chainCode);
+        }
+        $temp_array = array_unique($temp_array);
+
+        $chainCodeList = [];
+        foreach ($temp_array as $key => $value) {
+            $chainCodeList[] = (object)['chainCode' => $value];
+        }
+
         // }else {
             // $data = DB::table('nbfibranchmaintenance as a')
             //         ->join('userBranchMaintenance as b', 'b.chainCode', '=', 'a.chainCode')
@@ -118,7 +129,7 @@ class FetchController extends Controller
             //         ->get();
         // }
 
-        return response()->json($data);
+        return response()->json($chainCodeList);
     }
 
     public function fetchChainName(Request $request){
@@ -393,7 +404,7 @@ class FetchController extends Controller
             $data = DB::table('nbfi_items_barcode')
                             ->select('ItemNo', 'ItemDescription')
                             ->when($request->ItemNo, function ($query) use ($request) {
-                                $query->where('ItemNo', 'LIKE', '%' . $request->ItemNo . '%')
+                                $query->where('ItemNo', 'LIKE', '%' . $request->ItemNo)
                                     ->orWhere('ItemNo', 'LIKE', $request->ItemNo . '%');
                             })
                             ->limit(50)
@@ -406,7 +417,7 @@ class FetchController extends Controller
             $data = DB::table('nbfi_items_barcode')
                             ->select('Barcode as ItemNo', 'ItemDescription')
                             ->when($request->ItemNo, function ($query) use ($request) {
-                                $query->where('Barcode', 'LIKE', '%' . $request->ItemNo . '%')
+                                $query->where('Barcode', 'LIKE', '%' . $request->ItemNo)
                                     ->orWhere('Barcode', 'LIKE', $request->ItemNo . '%');
                             })
                             ->limit(50)
@@ -972,6 +983,32 @@ class FetchController extends Controller
 
         return response()->json($company);
     }
+
+    //Fetch Company List for requesting of temp branch based on User's company
+    public function fetchCompanyListByUser(Request $request){
+        $comp = [];
+
+        switch ($request->company) {
+            case 1:
+            case 2:
+            case 3:
+                $comp = ['NBFI', 'ASC', 'CMC'];
+                break;
+
+            case 4:
+            case 5:
+                $comp = ['EPC', 'AHLC'];
+                break;
+        }
+
+        $company = DB::table('companyTbl')
+                    ->select('id', 'shortName', 'name')
+                    ->whereIn('shortName', $comp)
+                    ->get();
+
+        return response()->json($company);
+    }
+
     public function fetchCompanyByUser(Request $request){
 
         $company = DB::table('companyTbl as a')

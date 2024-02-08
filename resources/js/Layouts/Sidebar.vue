@@ -104,7 +104,7 @@ export default {
       <el-sub-menu index="2" @click="subMenuEmitCollapse(2)">
         <template #title>
           <el-icon><Van /></el-icon>
-          <span tag="b">Pull-Out</span>
+          <span tag="b">Pull-Out </span>
         </template>
 
         <el-menu-item-group>
@@ -127,7 +127,7 @@ export default {
   </div>
 </template>
 
-<style>
+<style scoped>
 .el-menu-vertical:not(.el-menu--collapse) {
   width: max-content;
   height: 100vh;

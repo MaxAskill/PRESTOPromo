@@ -219,12 +219,12 @@ export default {
         {
           prop: "chainCode",
           label: "Chain Name",
-          minWidth: 130,
+          minWidth: 120,
         },
         {
           prop: "company",
           label: "Company",
-          minWidth: 140,
+          minWidth: 150,
         },
       ],
     };

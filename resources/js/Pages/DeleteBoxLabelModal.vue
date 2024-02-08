@@ -26,8 +26,8 @@
                 <el-popconfirm
                   width="210"
                   title="Are you sure you want to delete this box?"
-                  confirm-button-text="CONFIRM"
-                  cancel-button-text="CANCEL"
+                  confirm-button-text="Confirm"
+                  cancel-button-text="Cancel"
                   @confirm="confirmDeleteBoxLabel"
                 >
                   <template #reference>
